@@ -20,3 +20,10 @@ Thumbs.db
 # Temporary/intermediate files
 *.tmp
 *.log
+
+# LaTeX build artifacts
+*.aux
+*.out
+
+# Empty dirs
+html_captures/
