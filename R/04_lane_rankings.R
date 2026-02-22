@@ -4,36 +4,55 @@
 # Also run sensitivity analyses over K, theta, and year.
 ###############################################################################
 
-# Hebrew -> English transliteration for lane names
-LANE_NAMES <- c(
-  "\u05d4\u05d0\u05e8\u05f4\u05d9-\u05de\u05d8\u05d5\u05d3\u05dc\u05d4"                     = "HaAri-Metudela",
-  "\u05d0\u05d2\u05e8\u05d5\u05df-\u05e8\u05de\u05d1\u05f4\u05df\u200e"                        = "Agron-Ramban",
-  "\u05e7\u05e8\u05df \u05d4\u05d9\u05e1\u05d5\u05d3-\u05e7\u05d9\u05e0\u05d2 \u05d2\u05f3\u05d5\u05e8\u05d2\u05f3"  = "Keren HaYesod-King George",
-  "\u05d3\u05e8\u05da \u05d7\u05d1\u05e8\u05d5\u05df"                                           = "Derech Hebron",
-  "\u05d6\u05f3\u05d1\u05d5\u05d8\u05d9\u05e0\u05e1\u05e7\u05d9"                               = "Jabotinsky",
-  "\u05d2\u05f3\u05d5\u05e8\u05d2\u05f3 \u05d0\u05d3\u05dd \u05e1\u05de\u05d9\u05ea\u05f3 - \u05dc\u05d7\u05f4\u05d9\u200e\u200e" = "George Adam Smith-Lehi",
-  "\u05d4\u05e8\u05e6\u05dc\u200e"                                                               = "Herzl",
-  "\u05d1\u05df \u05d6\u05db\u05d0\u05d9-\u05d9\u05d4\u05d5\u05d3\u05d4 \u05d4\u05e0\u05e9\u05d9\u05d0" = "Ben Zakai-Yehuda HaNasi",
-  "\u05e8\u05d7\u05dc \u05d0\u05de\u05e0\u05d5-\u05d7\u05d6\u05e7\u05d9\u05d4\u05d5 \u05d4\u05de\u05dc\u05da-\u05d3\u05d5\u05e1\u05d8\u05d0\u05d9" = "Rachel Imenu-Hizkiyahu",
-  "\u05d1\u05e8 \u05dc\u05d1"                                                                     = "Bar Lev",
-  "\u05e6\u05d1\u05d9 \u05d9\u05d4\u05d5\u05d3\u05d4"                                           = "Tzvi Yehuda",
-  "\u05d4\u05d1\u05e8\u05d5\u05df \u05d4\u05d9\u05e8\u05e9-\u05d0\u05dc\u05d9\u05e2\u05d6\u05e8 \u05d4\u05dc\u05d5\u05d9" = "Baron Hirsch-Eliezer HaLevi",
-  "\u05d0\u05dc\u05e2\u05d6\u05e8 \u05d4\u05de\u05d5\u05d3\u05e2\u05d9-\u05db\u05d5\u05d1\u05e9\u05d9 \u05e7\u05d8\u05de\u05d5\u05df" = "Elazar HaModa'i-Katamon",
-  "\u05d4\u05e4\u05dc\u05de\u05f4\u05d7"                                                         = "HaPalmach",
-  "\u05d1\u05d6\u05e7-\u05d1\u05d9\u05d9\u05d8"                                                 = "Bezek-Beit",
-  "\u05d9\u05e8\u05de\u05d9\u05d4\u05d5-\u05d1\u05e8 \u05d0\u05d9\u05dc\u05df-\u05dc\u05d5\u05d9 \u05d0\u05e9\u05db\u05d5\u05dc" = "Yirmiyahu-Bar Ilan-Eshkol",
-  "\u05d2\u05d5\u05dc\u05d3\u05d4-\u05e9\u05de\u05d5\u05d0\u05dc \u05d4\u05e0\u05d1\u05d9\u05d0" = "Golda-Shmuel HaNavi",
-  "\u05e9\u05d8\u05e8\u05d0\u05d5\u05e1-\u05d9\u05d7\u05d6\u05e7\u05d0\u05dc"                 = "Strauss-Yehezkel",
-  "\u05d1\u05d2\u05d9\u05df (\u05d2\u05d1\u05e2\u05ea \u05e8\u05dd)"                           = "Begin (Givat Ram)",
-  "\u05d2\u05d5\u05dc\u05d5\u05de\u05d1"                                                         = "Golomb",
-  "\u05e7\u05d5\u05dc\u05d9\u05e5"                                                               = "Kolitz",
-  "\u05e4\u05d9\u05d9\u05e8 \u05e7\u05e0\u05d9\u05d2"                                           = "Pierre Koenig",
-  "\u05e9\u05de\u05d2\u05e8-\u05d0\u05d5\u05d4\u05dc \u05d9\u05d4\u05d5\u05e9\u05d5\u05e2-\u05e9\u05e4\u05e2 \u05d7\u05d9\u05d9\u05dd" = "Shamgar-Ohel Yehoshua",
-  "\u05d1\u05e6\u05dc\u05d0\u05dc-\u05e8\u05d1\u05d9\u05df"                                     = "Bezalel-Rabin"
+# English lane names, indexed by position in the wishing list KML (1-28)
+# This avoids encoding issues with Hebrew characters
+LANE_NAMES_BY_INDEX <- c(
+   "HaAri-Metudela",               #  1
+   "Agron-Ramban",                  #  2
+   "Keren HaYesod-King George",    #  3
+   "Derech Hebron",                 #  4
+   "Jabotinsky",                    #  5
+   "George Adam Smith-Lehi",        #  6
+   "Herzl",                         #  7
+   "Ben Zakai-Yehuda HaNasi",      #  8
+   "Rachel Imenu-Hizkiyahu",       #  9
+   "Bar Lev",                       # 10
+   "Tzvi Yehuda",                   # 11
+   "Baron Hirsch-Eliezer HaLevi",  # 12
+   "Elazar HaModa'i-Katamon",      # 13
+   "HaPalmach",                     # 14
+   "Bezek-Beit",                    # 15
+   "Yirmiyahu-Bar Ilan-Eshkol",    # 16
+   "Golda-Shmuel HaNavi",          # 17
+   "Strauss-Yehezkel",             # 18
+   "Begin (Givat Ram)",             # 19
+   "Golomb",                        # 20
+   "Kolitz",                        # 21
+   "Pierre Koenig",                 # 22
+   "Shamgar-Ohel Yehoshua",        # 23
+   "Bezalel-Rabin",                 # 24
+   "Yehuda-Yanovsky",              # 25
+   "David HaMelech",               # 26
+   "Pat",                           # 27
+   "Ussishkin-Radak-Molcho"         # 28
 )
 
+# Build name lookup: populated when wishing list is first loaded
+.lane_name_map <- new.env(parent = emptyenv())
+
+build_name_map <- function(wishing) {
+  # Create a mapping from raw KML name -> English name
+  for (i in seq_len(nrow(wishing))) {
+    raw <- wishing$Name[i]
+    if (i <= length(LANE_NAMES_BY_INDEX)) {
+      .lane_name_map[[raw]] <- LANE_NAMES_BY_INDEX[i]
+    }
+  }
+}
+
 transliterate <- function(name) {
-  if (name %in% names(LANE_NAMES)) return(LANE_NAMES[[name]])
+  en <- .lane_name_map[[name]]
+  if (!is.null(en)) return(en)
   name
 }
 
@@ -54,6 +73,9 @@ compute_lane_rankings <- function(network, areas_proj, wishing,
   # Returns: data.frame sorted by improvement (descending)
 
   message(sprintf("  Rankings for K=%g, theta=%g, year=%d...", k, theta, year))
+
+  # Ensure name map is built
+  if (length(ls(.lane_name_map)) == 0) build_name_map(wishing)
 
   G_base <- network$graph
   E(G_base)$has_bike_lane <- baseline_marked

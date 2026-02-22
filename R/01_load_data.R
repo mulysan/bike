@@ -35,18 +35,24 @@ load_areas <- function(data_dir) {
 }
 
 load_kml <- function(filepath) {
-  # Load a KML file; return empty sf if file is missing or unreadable
+  # Load a KML file; return empty sf if file is missing or unreadable.
+  # KML files often have 3D coords (Z), which we drop to avoid WKB errors.
   if (!file.exists(filepath)) {
     message("  File not found: ", filepath, " - using empty layer")
     return(st_sf(Name = character(0), geometry = st_sfc(), crs = WGS84))
   }
-  tryCatch(
+  result <- tryCatch(
     st_read(filepath, quiet = TRUE),
     error = function(e) {
       message("  Could not read ", filepath, ": ", e$message)
       st_sf(Name = character(0), geometry = st_sfc(), crs = WGS84)
     }
   )
+  # Drop Z dimension (KML geometries are often 3D)
+  if (nrow(result) > 0) {
+    result <- st_zm(result, drop = TRUE, what = "ZM")
+  }
+  result
 }
 
 load_all_data <- function(data_dir) {

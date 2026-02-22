@@ -132,14 +132,26 @@ build_road_network <- function(roads_proj, areas_proj, tolerance = NODE_TOLERANC
 
 mark_bike_lane_edges <- function(network, bike_lane_layers) {
   # Identify road edges that are covered by bike lanes.
-  # Returns a set (logical vector) of edge indices that have bike lanes.
+  # Uses a fully vectorized approach: union all bike lanes into one polygon,
+  # then intersect all roads at once.
+  # Returns a logical vector of edge indices that have bike lanes.
 
   G          <- network$graph
   road_geoms <- network$road_geoms
   road_keys  <- network$road_edge_keys
   n_edges    <- ecount(G)
+  n_roads    <- length(road_geoms)
 
-  # Build a lookup: "min_id,max_id" -> edge indices in G
+  if (n_roads == 0) return(logical(n_edges))
+
+  # Build a lookup: "min_id,max_id" -> road index
+  road_key_to_idx <- new.env(parent = emptyenv())
+  for (ri in seq_len(n_roads)) {
+    key <- paste(road_keys[[ri]][1], road_keys[[ri]][2], sep = ",")
+    road_key_to_idx[[key]] <- ri
+  }
+
+  # Build a lookup: road index -> edge index in graph
   from_vec <- ends(G, E(G))[, 1]
   to_vec   <- ends(G, E(G))[, 2]
   edge_key_lookup <- new.env(parent = emptyenv())
@@ -148,56 +160,69 @@ mark_bike_lane_edges <- function(network, bike_lane_layers) {
     edge_key_lookup[[key]] <- ei
   }
 
-  marked <- logical(n_edges)  # FALSE by default
-
+  # Collect all bike lane geometries into one sfc, project to TARGET_CRS
+  all_lane_geoms <- list()
   for (layer in bike_lane_layers) {
     if (is.null(layer) || nrow(layer) == 0) next
     layer_proj <- st_transform(layer, TARGET_CRS)
-
-    for (li in seq_len(nrow(layer_proj))) {
-      lane_geom <- st_geometry(layer_proj)[[li]]
-      if (is.null(lane_geom) || st_is_empty(lane_geom)) next
-
-      # Handle MultiLineString by extracting individual lines
-      lines <- if (inherits(lane_geom, "MULTILINESTRING")) {
-        st_cast(st_sfc(lane_geom, crs = TARGET_CRS), "LINESTRING")
-      } else {
-        st_sfc(lane_geom, crs = TARGET_CRS)
-      }
-
-      for (line in lines) {
-        buffered <- st_buffer(line, BUFFER_DIST)
-
-        for (ri in seq_along(road_geoms)) {
-          road_geom <- road_geoms[[ri]]
-          road_sfc  <- st_sfc(road_geom, crs = TARGET_CRS)
-
-          # Quick bounding box check
-          if (!st_intersects(road_sfc, buffered, sparse = FALSE)[1, 1]) next
-
-          intersection <- st_intersection(road_sfc, buffered)
-          if (length(intersection) == 0 || st_is_empty(intersection[[1]])) next
-
-          road_len    <- as.numeric(st_length(road_sfc))
-          inter_len   <- as.numeric(st_length(intersection))
-          overlap     <- if (road_len > 0) inter_len / road_len else 0
-
-          should_mark <- (
-            overlap > 0.5 ||
-            (road_len < 50 && overlap > 0.3) ||
-            inter_len > 20
-          )
-
-          if (should_mark) {
-            key <- paste(road_keys[[ri]][1], road_keys[[ri]][2], sep = ",")
-            ei  <- edge_key_lookup[[key]]
-            if (!is.null(ei)) marked[ei] <- TRUE
-          }
-        }
-      }
+    layer_lines <- st_cast(layer_proj, "LINESTRING", warn = FALSE)
+    valid <- !st_is_empty(st_geometry(layer_lines))
+    if (any(valid)) {
+      all_lane_geoms <- c(all_lane_geoms, st_geometry(layer_lines[valid, ]))
     }
   }
 
+  if (length(all_lane_geoms) == 0) return(logical(n_edges))
+
+  # Buffer all lanes and union into one polygon
+  message("    Buffering ", length(all_lane_geoms), " lane segments...")
+  lanes_sfc <- st_sfc(all_lane_geoms, crs = TARGET_CRS)
+  lanes_buffered <- st_buffer(lanes_sfc, BUFFER_DIST)
+  lanes_union <- st_union(lanes_buffered)
+
+  # Build road sfc and compute lengths
+  roads_sfc <- st_sfc(road_geoms, crs = TARGET_CRS)
+  road_lengths <- as.numeric(st_length(roads_sfc))
+
+  # Find all roads that intersect the buffered lanes (fast R-tree)
+  message("    Finding candidate roads...")
+  candidates <- st_intersects(roads_sfc, lanes_union)
+  candidate_ids <- which(sapply(candidates, length) > 0)
+  message("    ", length(candidate_ids), " / ", n_roads, " roads near bike lanes")
+
+  # Clip candidate roads by the lane buffer and check overlap
+  message("    Computing overlaps...")
+  marked_roads <- logical(n_roads)
+
+  if (length(candidate_ids) > 0) {
+    candidate_roads <- roads_sfc[candidate_ids]
+    clipped <- st_intersection(candidate_roads, lanes_union)
+    clipped_lengths <- as.numeric(st_length(clipped))
+
+    for (k in seq_along(candidate_ids)) {
+      ri <- candidate_ids[k]
+      inter_len <- clipped_lengths[k]
+      road_len  <- road_lengths[ri]
+      overlap   <- if (road_len > 0) inter_len / road_len else 0
+
+      should_mark <- (
+        overlap > 0.5 ||
+        (road_len < 50 && overlap > 0.3) ||
+        inter_len > 20
+      )
+      if (should_mark) marked_roads[ri] <- TRUE
+    }
+  }
+
+  # Map marked roads back to graph edge indices
+  marked <- logical(n_edges)
+  for (ri in which(marked_roads)) {
+    key <- paste(road_keys[[ri]][1], road_keys[[ri]][2], sep = ",")
+    ei  <- edge_key_lookup[[key]]
+    if (!is.null(ei)) marked[ei] <- TRUE
+  }
+
+  message("    Marked ", sum(marked), " edges with bike lanes")
   marked
 }
 

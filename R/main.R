@@ -65,6 +65,9 @@ wishing      <- data$wishing
 areas_proj <- st_transform(areas, TARGET_CRS)
 roads_proj <- st_transform(roads, TARGET_CRS)
 
+# Build Hebrew -> English name lookup for wishing-list lanes
+build_name_map(wishing)
+
 
 # =============================================================================
 # Step 2: Build road network graph
