@@ -18,11 +18,7 @@
 
 # ---- Setup ------------------------------------------------------------------
 
-script_dir <- if (interactive()) {
-  "."
-} else {
-  dirname(sys.frame(1)$ofile)
-}
+script_dir <- "/Users/shmuelsan/Dropbox/Apps/GitHub/bike/R"
 
 # Source all module files
 source(file.path(script_dir, "01_load_data.R"))
@@ -33,7 +29,7 @@ source(file.path(script_dir, "05_figures.R"))
 source(file.path(script_dir, "06_tables.R"))
 
 # Paths
-data_dir    <- normalizePath(file.path(script_dir, ".."))  # parent = bike/
+data_dir    <- "/Users/shmuelsan/Dropbox/Apps/GitHub/bike"
 figures_dir <- file.path(script_dir, "figures")
 tables_dir  <- file.path(script_dir, "tables")
 dir.create(figures_dir, showWarnings = FALSE)
