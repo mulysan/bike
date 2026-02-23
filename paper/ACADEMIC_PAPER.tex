@@ -67,4 +67,31 @@ Expanding urban cycling networks requires strategic prioritization of infrastruc
 
 \newpage
 
+% ============================================================
+% 1. INTRODUCTION
+% ============================================================
+\section{Introduction}
+\label{sec:introduction}
+
+Urban transportation systems worldwide face mounting pressure to reduce carbon emissions, improve public health, and enhance livability. Cycling has emerged as a central component of sustainable mobility strategies, offering zero-emission travel, cardiovascular health benefits, and highly efficient use of scarce urban road space \citep{pucher2017cycling,heinen2010commuter}. Yet cycling mode share remains stubbornly low in many cities, frequently below 2--3\% of commute trips, due in large part to the absence of dedicated cycling facilities that separate riders from fast-moving motorised traffic \citep{dill2003bicycle,buehler2012cycling}.
+
+Municipal governments increasingly acknowledge the need for comprehensive, connected cycling networks but face binding budget constraints. Constructing bike lanes requires capital investment, reallocation of road space from motorised vehicles, and considerable political capital. Planners must therefore make strategic decisions about \emph{which} segments to build \emph{first} so as to maximise benefits within the available fiscal envelope. This prioritisation problem---determining the optimal sequence of infrastructure investments---constitutes a fundamental challenge in transport planning \citep{krizek2009guidelines,schoner2014missing}.
+
+Traditional approaches to bike lane prioritisation often rely on forecast cycling demand, historical crash records, or simple connectivity metrics considered in isolation \citep{larsen2013build}. While individually informative, these criteria may fail to capture the systemic, network-level benefits that accrue when a new segment bridges two previously disconnected pieces of infrastructure. A short ``missing link'' that closes a gap can enable end-to-end protected trips and thereby generate accessibility gains far exceeding those predicted by its standalone demand estimate \citep{lowry2016using,furth2016network}. Conversely, a long, expensive lane placed in a peripheral location may add little to the usable network.
+
+This paper presents a gravity-based accessibility framework for ranking proposed bike lanes by their marginal contribution to city-wide accessibility. Drawing on the market-access literature in economic geography \citep{donaldson2016railroads,tsivanidis2024evaluating} and the classical gravity model in transportation planning \citep{hansen1959accessibility}, we define accessibility as the potential for population--employment interaction weighted by effective travel cost. The key modelling innovation is a multiplicative penalty factor $K$ applied to road segments that lack dedicated cycling facilities: cyclists are assumed to perceive unprotected roads as $K$ times longer than their physical length, producing \emph{effective cycling distances} that favour routes along bike lanes even when they entail physical detours.
+
+We apply this framework to Jerusalem, Israel---a city of nearly one million inhabitants with roughly 80\,km of existing bike lanes, significant network gaps, and an ambitious master-plan target for cycling expansion through 2040. Using population and employment data for 461 traffic analysis zones together with a road network of 8{,}306 nodes and 16{,}455 edges, we evaluate 28 candidate ``wishing list'' lanes proposed by the author in consultation with local planners. At default parameters ($K=5$, $\theta=-1.0$), the top-ranked lane---Bar Lev Boulevard, a 3.9\,km northern spine---improves aggregate accessibility by 9.46\%. The top three lanes together improve accessibility by 23.61\%, and full build-out of all 28 proposals would raise it by 54.49\%.
+
+Our contributions are fourfold:
+
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{Methodological.} We adapt gravity-based market-access models to cycling infrastructure prioritisation, introducing a tunable penalty parameter that captures heterogeneous cyclist preferences for protected facilities.
+    \item \textbf{Empirical.} We conduct a comprehensive evaluation of 28 proposed lanes in Jerusalem using official demographic projections, OpenStreetMap road data, and GIS-based bike-lane inventories.
+    \item \textbf{Robustness.} We perform sensitivity analyses over the penalty factor ($K$), the distance decay exponent ($\theta$), and the demographic projection year (2020--2040), identifying lanes whose high rankings are robust across the parameter space.
+    \item \textbf{Practical.} We deliver an open-source, browser-based interactive tool that enables planners to toggle lanes, adjust parameters, compute shortest paths, and draw custom proposals for immediate evaluation---all without server-side computation.
+\end{enumerate}
+
+The remainder of this paper is organised as follows. Section~\ref{sec:literature} reviews the relevant literature on accessibility modelling, cycling infrastructure evaluation, and network analysis. Section~\ref{sec:methodology} formalises the model. Section~\ref{sec:data} describes the study area and data. Section~\ref{sec:results} presents results, including lane rankings, sensitivity analyses, and spatial impact maps. Section~\ref{sec:discussion} discusses policy implications, limitations, and extensions. Section~\ref{sec:conclusion} concludes.
+
 \end{document}
