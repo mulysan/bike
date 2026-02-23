@@ -110,25 +110,90 @@ generate_table4_wishing_list <- function(wishing) {
 }
 
 
-# Table 5: Lane Rankings (default parameters) --------------------------------
+# Table 5: Independent Lane Rankings (default parameters) ---------------------
 
 generate_table5_rankings <- function(rankings) {
+  # Independent (additive) mode: each lane evaluated against the common baseline.
+  # Includes length and improvement-per-km for cost-effectiveness comparison.
   n <- nrow(rankings)
   rows <- character(n)
   for (i in seq_len(n)) {
-    name <- escape_latex(rankings$name[i])
-    rows[i] <- sprintf("%d & %s & %.2f & %.2f",
-                       rankings$rank[i], name,
-                       rankings$improvement_pct[i],
-                       rankings$cumulative_pct[i])
+    name    <- escape_latex(rankings$name[i])
+    len_km  <- rankings$length_m[i] / 1000
+    pct     <- rankings$improvement_pct[i]
+    per_km  <- if (len_km > 0) pct / len_km else 0
+    rows[i] <- sprintf("%d & %s & %.1f & %.2f & %.2f",
+                       rankings$rank[i], name, len_km, pct, per_km)
   }
 
   paste0(
     '\\begin{table}[H]\n\\centering\n',
-    '\\caption{Lane Rankings -- Additive Mode ($K=5$, $\\theta=-1.0$)}\n',
+    '\\caption{Independent Lane Rankings -- Each Lane vs.\\ Baseline ($K=5$, $\\theta=-1.0$)}\n',
     '\\label{tab:lane_rankings}\n',
+    '\\small\n',
+    '\\begin{tabular}{@{}clccc@{}}\n\\toprule\n',
+    '\\textbf{Rank} & \\textbf{Lane Name} & \\textbf{Length (km)} & ',
+    '\\textbf{\\% Improv.} & \\textbf{\\% per km} \\\\\n',
+    '\\midrule\n',
+    paste(rows, collapse = " \\\\\n"), " \\\\\n",
+    '\\bottomrule\n\\end{tabular}\n\\end{table}\n'
+  )
+}
+
+
+# Table 5b: Sequential (Greedy) Lane Rankings ---------------------------------
+
+generate_table5b_sequential <- function(seq_rankings) {
+  # Sequential greedy mode: each lane evaluated against the updated baseline
+  # that includes all previously selected lanes.
+  n <- nrow(seq_rankings)
+  rows <- character(n)
+  for (i in seq_len(n)) {
+    name <- escape_latex(seq_rankings$name[i])
+    rows[i] <- sprintf("%d & %s & %.2f & %.2f",
+                       seq_rankings$rank[i], name,
+                       seq_rankings$marginal_pct[i],
+                       seq_rankings$cumulative_pct[i])
+  }
+
+  paste0(
+    '\\begin{table}[H]\n\\centering\n',
+    '\\caption{Sequential (Greedy) Lane Rankings ($K=5$, $\\theta=-1.0$)}\n',
+    '\\label{tab:sequential_rankings}\n',
+    '\\small\n',
     '\\begin{tabular}{@{}clcc@{}}\n\\toprule\n',
-    '\\textbf{Rank} & \\textbf{Lane Name} & \\textbf{\\% Improvement} & \\textbf{Cumulative \\%} \\\\\n',
+    '\\textbf{Step} & \\textbf{Lane Name} & ',
+    '\\textbf{Marginal \\%} & \\textbf{Cumulative \\%} \\\\\n',
+    '\\midrule\n',
+    paste(rows, collapse = " \\\\\n"), " \\\\\n",
+    '\\bottomrule\n\\end{tabular}\n\\end{table}\n'
+  )
+}
+
+
+# Table 5c: Subtractive Lane Rankings -----------------------------------------
+
+generate_table5c_subtractive <- function(sub_rankings) {
+  # Subtractive mode: full network (baseline + all wishing-list lanes),
+  # remove one lane at a time, measure % loss.
+  n <- nrow(sub_rankings)
+  rows <- character(n)
+  for (i in seq_len(n)) {
+    name    <- escape_latex(sub_rankings$name[i])
+    len_km  <- sub_rankings$length_m[i] / 1000
+    rows[i] <- sprintf("%d & %s & %.1f & %.2f",
+                       sub_rankings$rank[i], name, len_km,
+                       sub_rankings$loss_pct[i])
+  }
+
+  paste0(
+    '\\begin{table}[H]\n\\centering\n',
+    '\\caption{Subtractive Lane Rankings -- Full Network Minus One ($K=5$, $\\theta=-1.0$)}\n',
+    '\\label{tab:subtractive_rankings}\n',
+    '\\small\n',
+    '\\begin{tabular}{@{}clcc@{}}\n\\toprule\n',
+    '\\textbf{Rank} & \\textbf{Lane Name} & \\textbf{Length (km)} & ',
+    '\\textbf{\\% Loss} \\\\\n',
     '\\midrule\n',
     paste(rows, collapse = " \\\\\n"), " \\\\\n",
     '\\bottomrule\n\\end{tabular}\n\\end{table}\n'
@@ -237,23 +302,23 @@ generate_table8_temporal <- function(rankings_by_year,
 
 # Table 9: Implementation phases ---------------------------------------------
 
-generate_table9_phases <- function(rankings) {
-  n <- nrow(rankings)
-  # Phase 1: Top 3, Phase 2: +3 (4-6), Phase 3: +3 (7-9), Phase 4: +3 (10-12)
+generate_table9_phases <- function(seq_rankings) {
+  # Use sequential (greedy) rankings so cumulative column is meaningful.
+  n <- nrow(seq_rankings)
   phase_ends <- c(3, 6, 9, 12)
 
   rows <- character(0)
   for (p in seq_along(phase_ends)) {
     end_idx <- min(phase_ends[p], n)
-    cum_pct <- sum(rankings$improvement_pct[1:end_idx])
+    cum_pct <- seq_rankings$cumulative_pct[end_idx]
 
     if (p == 1) {
-      names_str <- paste(rankings$name[1:end_idx], collapse = ", ")
+      names_str <- paste(seq_rankings$name[1:end_idx], collapse = ", ")
       label <- "Phase 1 (Top 3)"
     } else {
       start_idx <- phase_ends[p - 1] + 1
       if (start_idx > n) next
-      names_str <- paste0("+ ", paste(rankings$name[start_idx:end_idx], collapse = ", "))
+      names_str <- paste0("+ ", paste(seq_rankings$name[start_idx:end_idx], collapse = ", "))
       label <- sprintf("Phase %d (+3)", p)
     }
     names_str <- escape_latex(substr(names_str, 1, 50))
@@ -261,7 +326,7 @@ generate_table9_phases <- function(rankings) {
   }
 
   # Complete row
-  total_pct <- sum(rankings$improvement_pct)
+  total_pct <- seq_rankings$cumulative_pct[n]
   rows <- c(rows, sprintf("Complete (All %d) & All proposed lanes & %.2f", n, total_pct))
 
   paste0(
