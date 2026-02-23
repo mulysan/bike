@@ -333,4 +333,145 @@ Table~\ref{tab:wishing_list} presents the 28 proposed bike lanes evaluated in th
 
 Proposed lanes range in length from 502\,m (David HaMelech, a short central connector) to 5{,}199\,m (Derech Hebron, a major north--south arterial). The total length of all 28 proposals is approximately 48\,km.
 
+% ============================================================
+% 5. RESULTS
+% ============================================================
+\section{Results}
+\label{sec:results}
+
+All results in this section use the default parameter values $K = 5$ and $\theta = -1.0$ with year-2025 demographic projections unless otherwise noted. Sensitivity to these choices is examined in Sections~\ref{sec:sensitivity_k}--\ref{sec:temporal}.
+
+\subsection{Baseline Accessibility}
+\label{sec:baseline}
+
+Figure~\ref{fig:baseline} maps origin and destination accessibility across Jerusalem's 461 TAZs under the baseline scenario (existing and under-construction bike lanes only). The spectral colour scale runs from dark blue (lowest accessibility) through cyan, yellow, and orange to crimson (highest).
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figure1_baseline_accessibility.pdf}
+\caption{Baseline accessibility by traffic analysis zone. \textit{Left}: origin accessibility $A_i^{\mathrm{O}}$ (jobs reachable from each zone). \textit{Right}: destination accessibility $A_j^{\mathrm{D}}$ (population that can reach each zone). Colour scale: dark blue (low) to crimson (high).}
+\label{fig:baseline}
+\end{figure}
+
+Central zones---including the city centre, Rehavia, and the German Colony---exhibit the highest origin accessibility, reflecting both their geographic centrality and their proximity to existing bike infrastructure. Peripheral zones in the north and south show substantially lower values, indicating that residents of these areas face high effective cycling distances to reach employment concentrations. The destination accessibility map reveals a complementary pattern: employment-rich zones in the central business district are the most ``reachable'' destinations, while peripheral employment centres are poorly served.
+
+\subsection{Lane Rankings}
+\label{sec:rankings}
+
+Table~\ref{tab:lane_rankings} presents the complete ranking of all 28 proposed lanes by their marginal contribution to city-wide accessibility $N$.
+
+\input{tables/table5_rankings.tex}
+
+The results reveal striking heterogeneity. The top-ranked lane, Bar Lev Boulevard, improves aggregate accessibility by 9.46\%---a remarkably large effect from a single 3.9\,km segment. The second-ranked lane, Yirmiyahu--Bar Ilan--Eshkol, contributes 8.37\%. Together with the third-ranked Bezalel--Rabin (5.78\%), the top three lanes account for a cumulative improvement of 23.61\%, nearly half of the total potential from all 28 lanes. At the other end of the ranking, the bottom five lanes each contribute less than 0.4\%, suggesting that they would be low priorities under any reasonable budget constraint.
+
+\subsection{Analysis of Top-Ranked Lanes}
+
+\subsubsection{Bar Lev Boulevard (Rank 1: $+$9.46\%)}
+
+Bar Lev Boulevard is a 3.9\,km arterial running through northern Jerusalem, connecting Ramat Eshkol and surrounding neighbourhoods to the northern approaches of the central business district. Its top ranking reflects three reinforcing factors:
+
+\begin{itemize}[leftmargin=*,nosep]
+    \item It bridges a critical gap in the north, connecting isolated northern bike-lane segments to the denser central network.
+    \item It serves high-population residential zones whose current effective cycling distances to central employment are dominated by $K$-penalised road segments.
+    \item Its length and alignment enable a large number of origin--destination pairs to benefit from a single investment.
+\end{itemize}
+
+\subsubsection{Yirmiyahu--Bar Ilan--Eshkol (Rank 2: $+$8.37\%)}
+
+This 3.6\,km east--west corridor complements Bar Lev by providing lateral connectivity across northern Jerusalem, linking the Bar Ilan junction to Levi Eshkol Boulevard. Together with Bar Lev, it would create a connected northern sub-network that dramatically reduces effective distances for a large residential catchment.
+
+\subsubsection{Bezalel--Rabin (Rank 3: $+$5.78\%)}
+
+Bezalel--Rabin is a 1.9\,km central cultural corridor connecting the Bezalel Academy of Arts and Design area to Rabin Square vicinity. Despite its moderate length, its central location and the density of both population and employment along its route generate substantial accessibility gains.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figure3_1_lane_impact_Bar_Lev.pdf}
+\caption{Spatial impact of Bar Lev Boulevard (Rank 1). \textit{Left}: percentage change in origin accessibility. \textit{Right}: percentage change in destination accessibility. Orange line shows proposed lane alignment.}
+\label{fig:impact_barlev}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figure3_2_lane_impact_Yirmiyahu-Bar_Ilan-E.pdf}
+\caption{Spatial impact of Yirmiyahu--Bar Ilan--Eshkol (Rank 2). Format as in Figure~\ref{fig:impact_barlev}.}
+\label{fig:impact_yirmiyahu}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figure3_3_lane_impact_Bezalel-Rabin.pdf}
+\caption{Spatial impact of Bezalel--Rabin (Rank 3). Format as in Figure~\ref{fig:impact_barlev}.}
+\label{fig:impact_bezalel}
+\end{figure}
+
+Figures~\ref{fig:impact_barlev}--\ref{fig:impact_bezalel} map the zone-level percentage change in origin and destination accessibility attributable to each of the top three lanes. Bar Lev Boulevard produces the broadest spatial footprint, with accessibility improvements exceeding 10\% in multiple northern zones. Yirmiyahu--Bar Ilan--Eshkol concentrates its benefits in the north-central belt, while Bezalel--Rabin's impact radiates from the city centre outward.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figure4_top_lanes_comparison.pdf}
+\caption{Side-by-side comparison of zone-level accessibility impacts for the top three ranked lanes. Each row shows origin (left) and destination (right) impact maps for one lane; orange lines indicate the proposed alignment.}
+\label{fig:comparison}
+\end{figure}
+
+Figure~\ref{fig:comparison} facilitates direct visual comparison across the three lanes, making clear that the top-ranked lanes have complementary spatial coverage: Bar Lev serves the north, Bezalel--Rabin serves the centre, and Yirmiyahu--Bar Ilan--Eshkol links the two.
+
+\subsection{Sensitivity Analysis: $K$ Parameter}
+\label{sec:sensitivity_k}
+
+Table~\ref{tab:sensitivity_k} reports how the top-5 rankings shift as the penalty factor $K$ varies from 2 (mild preference for bike lanes) to 100 (near-exclusive use).
+
+\input{tables/table6_sensitivity_k.tex}
+
+Bar Lev Boulevard ranks first at $K = 2$, 5, and 10, demonstrating that its accessibility contribution does not depend on extreme cyclist aversion to mixed traffic. At higher $K$ values (50 and 100), Bezalel--Rabin rises to the top, reflecting its role as a connector within the dense central network: when cyclists are very reluctant to leave bike lanes, central links that complete the core network become disproportionately valuable. Yirmiyahu--Bar Ilan--Eshkol ranks second across all five $K$ values, exhibiting the strongest robustness of any lane.
+
+\subsection{Sensitivity Analysis: $\theta$ Parameter}
+\label{sec:sensitivity_theta}
+
+Table~\ref{tab:sensitivity_theta} reports rankings across distance-decay exponents.
+
+\input{tables/table7_sensitivity_theta.tex}
+
+At slow decay ($\theta = -0.5$ to $-1.5$), where long-distance trips contribute substantially to accessibility, the lengthy northern corridors (Bar Lev, Yirmiyahu) dominate. As decay steepens to $\theta = -2.0$ and $-3.0$---emphasising short, local trips---Yirmiyahu and Shamgar--Ohel Yehoshua rise in the rankings. The latter lane, a northern connector, apparently enables many short-distance trips between closely spaced northern zones. Bezalel--Rabin remains in the top three across all $\theta$ values, underscoring its versatility.
+
+\subsection{Temporal Analysis: 2020--2040 Projections}
+\label{sec:temporal}
+
+Table~\ref{tab:temporal} shows how rankings respond to demographic change over a 20-year horizon.
+
+\input{tables/table8_temporal.tex}
+
+Rankings are strikingly stable across projection years: the top five lanes are identical from 2020 to 2040 at default $K$ and $\theta$. This temporal robustness implies that the priority ordering is not an artefact of a particular demographic snapshot but reflects structural properties of the network and the spatial distribution of population and employment.
+
+\subsection{Cumulative Impact and Phased Implementation}
+\label{sec:phases}
+
+Table~\ref{tab:phases} reports the cumulative accessibility improvement from sequential implementation of the highest-ranked lanes.
+
+\input{tables/table9_phases.tex}
+
+The marginal returns are front-loaded: the top three lanes deliver 23.61\% of total potential improvement, while lanes 4--6 add an additional 10.94 percentage points (to 34.55\%). Diminishing marginal returns are evident---each successive phase adds less than the previous one---consistent with the network-theoretic intuition that the most impactful gap-closures are funded first.
+
+Figure~\ref{fig:cumulative} visualises the spatial progression of accessibility improvements as lanes are added in priority order.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figure5_cumulative_impact.pdf}
+\caption{Cumulative origin accessibility improvement as top-ranked lanes are added sequentially. Four panels show the state after the 1st, 2nd, 3rd, and 5th ranked lanes. Green lines: previously added lanes; orange line: lane added in current step. Colour scale: percentage improvement over baseline.}
+\label{fig:cumulative}
+\end{figure}
+
+\subsection{Spatial Distribution of Accessibility Gains}
+
+Figure~\ref{fig:improvement_top5} maps the zone-level percentage change in both origin and destination accessibility when the top five lanes are implemented simultaneously.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figure2_improvement_top5.pdf}
+\caption{Percentage change in origin accessibility (left) and destination accessibility (right) with the top 5 ranked lanes implemented. Colour scale: dark blue (no change) to crimson (largest improvement).}
+\label{fig:improvement_top5}
+\end{figure}
+
+The northern zones show the largest origin-accessibility gains, reflecting the combined effect of Bar Lev, Yirmiyahu, and Shamgar. Central zones benefit primarily through improved destination accessibility, as the Bezalel--Rabin and Golda--Shmuel HaNavi lanes make central employment more reachable. Eastern Jerusalem zones show minimal improvement, consistent with the absence of proposed lanes in that part of the city.
+
 \end{document}
