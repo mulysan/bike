@@ -133,4 +133,162 @@ Several studies have proposed optimisation-based approaches to bike-lane network
 
 Despite parallel advances in accessibility modelling and cycling infrastructure evaluation, few studies have integrated gravity-based accessibility frameworks with cycling-specific network analysis. Most bike-lane prioritisation methods rely on predicted demand, safety metrics, or graph-theoretic connectivity indices without embedding these in a comprehensive accessibility model that accounts for the full origin--destination structure of urban travel. Our methodology addresses this gap by adapting the market-access framework from economic geography to cycling infrastructure, introducing an explicit penalty parameter for unprotected road segments, and demonstrating the approach on a real-world case study with extensive sensitivity analysis.
 
+% ============================================================
+% 3. METHODOLOGY
+% ============================================================
+\section{Methodology}
+\label{sec:methodology}
+
+This section formalises the accessibility model, the network representation with cycling-preference penalties, the lane-ranking procedure, and the preprocessing pipeline that converts raw GIS data into a routable graph.
+
+\subsection{Accessibility Model}
+\label{sec:model}
+
+\subsubsection{Aggregate Accessibility Metric}
+
+We measure city-wide cycling accessibility using a gravity-based formulation that sums, over all origin--destination pairs, the product of origin ``mass'' (population), destination ``mass'' (employment), and a distance-decay term:
+
+\begin{equation}
+N = \sum_{i=1}^{I} \sum_{j=1}^{J} P_i \, E_j \, \tau_{ij}^{\,\theta},
+\label{eq:accessibility}
+\end{equation}
+
+\noindent where:
+\begin{itemize}[leftmargin=*,nosep]
+    \item $P_i$ is the residential population of traffic analysis zone (TAZ) $i$;
+    \item $E_j$ is the employment count in TAZ $j$;
+    \item $\tau_{ij}$ is the effective cycling distance (in kilometres) from $i$ to $j$, defined below;
+    \item $\theta < 0$ is the distance-decay exponent.
+\end{itemize}
+
+\noindent The metric $N$ can be interpreted as the total ``potential for interaction'' between residents and jobs, discounted by travel impedance. Higher values of $N$ indicate a city in which, on average, residents can reach more jobs at lower effective cost.
+
+\subsubsection{Distance Decay}
+
+The power-law decay function $\tau^{\theta}$ implies that the propensity of interaction between zones $i$ and $j$ decreases polynomially with effective distance. The exponent $\theta$ governs the rate of decay (Table~\ref{tab:theta_values}).
+
+\input{tables/table1_theta.tex}
+
+More negative values of $\theta$ place greater weight on short-distance accessibility and discount distant destinations rapidly; less negative values give more weight to long-distance connections. This parameter can in principle be calibrated from observed trip-length distributions, though we treat it as a scenario variable and examine sensitivity across a range of plausible values.
+
+\subsubsection{Zone-Level Accessibility}
+
+In addition to the aggregate metric $N$, we compute accessibility disaggregated to each TAZ:
+
+\textbf{Origin accessibility} (jobs reachable from zone $i$):
+\begin{equation}
+A_i^{\mathrm{O}} = \sum_{j=1}^{J} E_j \, \tau_{ij}^{\,\theta}.
+\label{eq:origin_acc}
+\end{equation}
+
+\textbf{Destination accessibility} (population that can reach zone $j$):
+\begin{equation}
+A_j^{\mathrm{D}} = \sum_{i=1}^{I} P_i \, \tau_{ij}^{\,\theta}.
+\label{eq:dest_acc}
+\end{equation}
+
+These metrics enable spatial mapping of accessibility patterns and identification of zones that stand to gain most from proposed infrastructure.
+
+\subsection{Network Representation}
+\label{sec:network}
+
+\subsubsection{Graph Construction}
+
+The road network is represented as an undirected weighted graph $G = (V, E)$, where $V$ is the set of nodes (intersections and endpoints) and $E$ is the set of edges (road segments). Each edge $e \in E$ carries two attributes:
+
+\begin{itemize}[leftmargin=*,nosep]
+    \item $\ell_e$: the physical length of $e$ in metres;
+    \item $b_e \in \{0, 1\}$: an indicator equal to 1 if $e$ is covered by a dedicated bike lane.
+\end{itemize}
+
+\subsubsection{The $K$-Penalty}
+
+The central mechanism for incorporating cyclist infrastructure preferences is a multiplicative penalty factor $K \geq 1$ applied to edges without bike lanes:
+
+\begin{equation}
+w_e =
+\begin{cases}
+\ell_e & \text{if } b_e = 1, \\[4pt]
+\ell_e \times K & \text{if } b_e = 0.
+\end{cases}
+\label{eq:k_penalty}
+\end{equation}
+
+The parameter $K$ translates the empirical observation that cyclists prefer protected facilities---even at the cost of longer physical routes---into the language of shortest-path computation. Table~\ref{tab:k_values} summarises the interpretation across the range explored in this study.
+
+\input{tables/table2_k.tex}
+
+At $K = 1$ (no penalty), the model reduces to standard shortest-path routing on physical distances; at very large $K$, cyclists route almost exclusively along bike lanes, accepting arbitrarily long detours to avoid unprotected segments. Intermediate values reflect the trade-off between directness and safety documented in the route-choice literature \citep{broach2012bicycle,winters2010far}.
+
+\subsubsection{Shortest-Path Computation}
+
+Effective cycling distances $\tau_{ij}$ are computed using Dijkstra's algorithm with the penalty-adjusted weights $w_e$:
+
+\begin{equation}
+\tau_{ij} = \min_{\pi \in \Pi_{ij}} \sum_{e \in \pi} w_e,
+\label{eq:dijkstra}
+\end{equation}
+
+\noindent where $\Pi_{ij}$ is the set of all simple paths from the nearest graph node to TAZ $i$'s centroid to the nearest graph node to TAZ $j$'s centroid. The result is converted to kilometres (with a floor of 0.1\,km to avoid division-by-zero in the decay function) before entering Equation~\eqref{eq:accessibility}.
+
+\subsection{Lane Ranking Procedure}
+\label{sec:ranking}
+
+\subsubsection{Additive (Prioritisation) Mode}
+
+To rank candidate lanes for new investment, we evaluate the marginal accessibility gain from adding each lane individually to the baseline network:
+
+\begin{enumerate}[leftmargin=*,nosep]
+    \item \textbf{Baseline.} Compute $N_{\mathrm{base}}$ using existing (completed + under-construction) bike lanes.
+    \item \textbf{Per-lane evaluation.} For each candidate lane $l = 1, \ldots, L$:
+    \begin{enumerate}[nosep]
+        \item Set $b_e = 1$ for all edges covered by lane $l$.
+        \item Recompute $N_l$ via Equations~\eqref{eq:k_penalty}--\eqref{eq:dijkstra}--\eqref{eq:accessibility}.
+        \item Record $\Delta_l = N_l - N_{\mathrm{base}}$ and $\%\Delta_l = 100 \times \Delta_l / N_{\mathrm{base}}$.
+    \end{enumerate}
+    \item \textbf{Ranking.} Sort lanes by $\%\Delta_l$ in descending order.
+\end{enumerate}
+
+This procedure evaluates each lane \emph{independently} against the common baseline. It identifies the single best next investment given the existing network, and provides a natural priority ordering when lanes are to be funded sequentially.
+
+\subsubsection{Subtractive (Value Assessment) Mode}
+
+To assess the value of lanes already in the network (existing or selected), we compute the accessibility \emph{loss} from removing each lane one at a time:
+
+\begin{enumerate}[leftmargin=*,nosep]
+    \item Compute $N_{\mathrm{all}}$ with all selected lanes active.
+    \item For each lane $l$, remove it and recompute $N_{-l}$.
+    \item Record $\Delta_l = N_{\mathrm{all}} - N_{-l}$ and rank by $\%\Delta_l$.
+\end{enumerate}
+
+\subsection{Network Preprocessing}
+\label{sec:preprocessing}
+
+Raw geospatial data from multiple sources (KML bike-lane files, OpenStreetMap road exports, shapefiles of TAZ boundaries) contain topological inconsistencies that must be resolved before routing. Our preprocessing pipeline proceeds in five stages.
+
+\paragraph{Node merging.}
+Endpoints within a 15\,m tolerance are merged into a single node, handling GPS imprecision and ensuring connectivity at apparent intersections where coordinates differ by a few metres.
+
+\paragraph{Intersection detection.}
+Bike-lane geometries are overlaid on the road network. At every geometric intersection point, a new node is inserted and the affected edges are split, enabling routing to transition between road segments and bike-lane segments.
+
+\paragraph{Bike-lane coverage assignment.}
+An edge $e$ is classified as having a bike lane ($b_e = 1$) if any of the following conditions hold:
+\begin{itemize}[leftmargin=*,nosep]
+    \item $\geq 50\%$ of its length is overlapped by a bike-lane geometry;
+    \item $\geq 30\%$ overlap for short edges ($\ell_e < 100$\,m);
+    \item $\geq 20$\,m of absolute overlap regardless of percentage.
+\end{itemize}
+These multi-tier thresholds accommodate geometric imprecision while ensuring that only edges with meaningful bike-lane coverage are flagged.
+
+\paragraph{Gap connection.}
+Dangling endpoints of bike-lane geometries---those not touching any other lane within 1\,m---are identified using a KD-tree spatial index. Pairs of dangling endpoints within 50\,m are connected by new edges, closing small gaps caused by digitisation errors.
+
+\paragraph{Component connectivity.}
+If the graph contains disconnected components after the preceding steps, additional edges are inserted between the closest node-pairs of neighbouring components (minimum spanning tree on inter-component distances), ensuring that every TAZ centroid can reach every other.
+
+\subsection{Coordinate Reference Systems}
+
+All distance calculations are performed in Israel Transverse Mercator (ITM, EPSG:2039), which provides sub-metre accuracy over the study area. Display and web-mapping outputs use WGS\,84 geographic coordinates (EPSG:4326).
+
 \end{document}
