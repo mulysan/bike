@@ -341,10 +341,12 @@ Proposed lanes range in length from 502\,m (David HaMelech, a short central conn
 
 All results in this section use the default parameter values $K = 5$ and $\theta = -1.0$ with year-2025 demographic projections unless otherwise noted. Sensitivity to these choices is examined in Sections~\ref{sec:sensitivity_k}--\ref{sec:temporal}.
 
+\textbf{Baseline definition.} Throughout this paper, the \emph{baseline network} comprises all \emph{completed} (operational) bike lanes plus all lanes currently \emph{under construction}. The under-construction lanes are included because they are committed investments expected to be operational in the near term, and planning decisions about new lanes should account for the network as it will exist when those decisions are implemented.
+
 \subsection{Baseline Accessibility}
 \label{sec:baseline}
 
-Figure~\ref{fig:baseline} maps origin and destination accessibility across Jerusalem's 461 TAZs under the baseline scenario (existing and under-construction bike lanes only). The spectral colour scale runs from dark blue (lowest accessibility) through cyan, yellow, and orange to crimson (highest).
+Figure~\ref{fig:baseline} maps origin and destination accessibility across Jerusalem's 461 TAZs under the baseline scenario (completed + under-construction bike lanes). The spectral colour scale runs from dark blue (lowest accessibility) through cyan, yellow, and orange to crimson (highest).
 
 \begin{figure}[H]
 \centering
@@ -355,14 +357,36 @@ Figure~\ref{fig:baseline} maps origin and destination accessibility across Jerus
 
 Central zones---including the city centre, Rehavia, and the German Colony---exhibit the highest origin accessibility, reflecting both their geographic centrality and their proximity to existing bike infrastructure. Peripheral zones in the north and south show substantially lower values, indicating that residents of these areas face high effective cycling distances to reach employment concentrations. The destination accessibility map reveals a complementary pattern: employment-rich zones in the central business district are the most ``reachable'' destinations, while peripheral employment centres are poorly served.
 
-\subsection{Lane Rankings}
+\subsection{Independent Lane Rankings}
 \label{sec:rankings}
 
-Table~\ref{tab:lane_rankings} presents the complete ranking of all 28 proposed lanes by their marginal contribution to city-wide accessibility $N$.
+Table~\ref{tab:lane_rankings} presents the complete ranking of all 28 proposed lanes by their \emph{independent} marginal contribution to city-wide accessibility $N$. In this analysis, each lane is evaluated individually against the common baseline (completed + under-construction lanes); the improvement percentage reflects the gain from adding that single lane to the baseline. The table also reports each lane's length and the accessibility improvement per kilometre, a proxy for cost-effectiveness.
 
 \input{tables/table5_rankings.tex}
 
-The results reveal striking heterogeneity. The top-ranked lane, Bar Lev Boulevard, improves aggregate accessibility by 9.46\%---a remarkably large effect from a single 3.9\,km segment. The second-ranked lane, Yirmiyahu--Bar Ilan--Eshkol, contributes 8.37\%. Together with the third-ranked Bezalel--Rabin (5.78\%), the top three lanes account for a cumulative improvement of 23.61\%, nearly half of the total potential from all 28 lanes. At the other end of the ranking, the bottom five lanes each contribute less than 0.4\%, suggesting that they would be low priorities under any reasonable budget constraint.
+The results reveal striking heterogeneity. The top-ranked lane, Bar Lev Boulevard, improves aggregate accessibility by 9.46\%---a remarkably large effect from a single 3.9\,km segment. The second-ranked lane, Yirmiyahu--Bar Ilan--Eshkol, contributes 8.37\%. Bezalel--Rabin, ranked third, achieves 5.78\% from only 1.9\,km, giving it a high per-kilometre efficiency. At the other end of the ranking, the bottom five lanes each contribute less than 0.4\%.
+
+The per-kilometre column reveals that lane \emph{length} and lane \emph{value} are only loosely correlated. Short, centrally located lanes (e.g.\ Baron Hirsch--Eliezer HaLevi at 0.6\,km) can achieve high per-km efficiency because they close small but critical gaps, while longer peripheral lanes may deliver lower per-km returns despite respectable aggregate contributions.
+
+\subsection{Sequential (Greedy) Rankings}
+\label{sec:sequential}
+
+The independent rankings above evaluate each lane against a common baseline and do not account for interactions between lanes. In practice, the value of a lane depends on what has already been built: two lanes that serve similar corridors may be partially substitutable, while two lanes that form a connected route may be complementary.
+
+To capture these interactions, Table~\ref{tab:sequential_rankings} presents a \emph{sequential greedy} ranking. At each step the algorithm selects the lane with the highest marginal improvement relative to the \emph{updated} baseline (which includes all previously selected lanes), adds it, and repeats. The ``Marginal \%'' column shows the gain at the step of selection, while ``Cumulative \%'' reports the total improvement relative to the original baseline.
+
+\input{tables/table5b_sequential.tex}
+
+Comparing Tables~\ref{tab:lane_rankings} and \ref{tab:sequential_rankings} reveals how lane interactions affect prioritisation. The top three lanes are likely similar in both rankings (reflecting their dominant standalone value), but lower-ranked lanes may shift as earlier selections alter the network topology.
+
+\subsection{Subtractive (Value Assessment) Rankings}
+\label{sec:subtractive}
+
+A complementary perspective is provided by the \emph{subtractive} analysis. Here, we start from the \emph{full} proposed network (baseline plus all 28 wishing-list lanes) and remove each lane one at a time, measuring the percentage loss in aggregate accessibility. This reveals which lanes are most \emph{valuable} to the completed network---those whose removal would cause the greatest damage.
+
+\input{tables/table5c_subtractive.tex}
+
+Table~\ref{tab:subtractive_rankings} shows that the most valuable lanes in the full network may differ from the highest-priority lanes for new construction (Table~\ref{tab:lane_rankings}). A lane that is critical for network connectivity in the full build-out (high subtractive value) may not rank as highly in the independent additive analysis if its benefit depends on other proposed lanes being present. Conversely, a lane with high additive value may have lower subtractive value if other lanes partially substitute for its function in the complete network.
 
 \subsection{Analysis of Top-Ranked Lanes}
 
@@ -446,11 +470,11 @@ Rankings are strikingly stable across projection years: the top five lanes are i
 \subsection{Cumulative Impact and Phased Implementation}
 \label{sec:phases}
 
-Table~\ref{tab:phases} reports the cumulative accessibility improvement from sequential implementation of the highest-ranked lanes.
+Table~\ref{tab:phases} reports the cumulative accessibility improvement from the sequential greedy algorithm (Section~\ref{sec:sequential}), grouped into implementation phases of three lanes each. Because the sequential procedure accounts for lane interactions, the cumulative column reflects the \emph{true} aggregate gain from building all lanes in a given phase together, not merely the sum of independent contributions.
 
 \input{tables/table9_phases.tex}
 
-The marginal returns are front-loaded: the top three lanes deliver 23.61\% of total potential improvement, while lanes 4--6 add an additional 10.94 percentage points (to 34.55\%). Diminishing marginal returns are evident---each successive phase adds less than the previous one---consistent with the network-theoretic intuition that the most impactful gap-closures are funded first.
+The marginal returns are front-loaded: the first phase (top 3 lanes) delivers the largest per-lane gains. Diminishing marginal returns are evident in subsequent phases, consistent with the network-theoretic intuition that the most impactful gap-closures are funded first.
 
 Figure~\ref{fig:cumulative} visualises the spatial progression of accessibility improvements as lanes are added in priority order.
 
@@ -482,7 +506,9 @@ The northern zones show the largest origin-accessibility gains, reflecting the c
 
 \subsection{Interpretation of Results}
 
-The analysis reveals striking heterogeneity in the accessibility contributions of candidate bike lanes. The top-ranked lane (Bar Lev, 9.46\%) contributes roughly 68 times as much as the lowest-ranked lane (David HaMelech, 0.14\%). This disparity has a clear policy implication: ad hoc selection of lanes---whether driven by political convenience, land availability, or construction ease---risks investing in segments near the bottom of the ranking while forgoing orders-of-magnitude larger accessibility gains.
+The analysis reveals striking heterogeneity in the accessibility contributions of candidate bike lanes. In the independent evaluation, the top-ranked lane (Bar Lev, 9.46\%) contributes roughly 68 times as much as the lowest-ranked lane (David HaMelech, 0.14\%). This disparity has a clear policy implication: ad hoc selection of lanes---whether driven by political convenience, land availability, or construction ease---risks investing in segments near the bottom of the ranking while forgoing orders-of-magnitude larger accessibility gains.
+
+The three ranking modes---independent, sequential, and subtractive---provide complementary perspectives for decision-making. The independent ranking identifies the single best next investment given the current baseline. The sequential greedy ranking provides a recommended build order that accounts for lane interactions. The subtractive ranking reveals which lanes are structurally most important to the completed network, informing decisions about which lanes to protect from budget cuts or design compromises.
 
 Three structural factors explain why certain lanes rank highly:
 
@@ -531,7 +557,7 @@ Several limitations should be noted:
 
     \item \textbf{Homogeneous $K$.} A single penalty factor represents all cyclists. In practice, experienced commuters may tolerate mixed traffic ($K \approx 2$--5), while occasional riders and families require near-exclusive bike-lane routing ($K \gg 10$). A heterogeneous-agent extension could assign $K$ values drawn from a distribution and compute expected accessibility.
 
-    \item \textbf{Independent evaluation.} The additive-mode procedure evaluates each lane independently against the baseline. In reality, the value of lane $l$ may depend on whether lane $l'$ has already been built (complementarity or substitution). A sequential greedy algorithm---adding the best lane, updating the baseline, and repeating---could capture such interactions at the cost of $O(L^2)$ rather than $O(L)$ accessibility computations.
+    \item \textbf{Greedy vs.\ optimal sequencing.} While the sequential greedy algorithm (Section~\ref{sec:sequential}) captures pairwise lane interactions, it does not guarantee globally optimal sequencing. A branch-and-bound or dynamic-programming approach could find the true optimum but at combinatorial computational cost. The greedy approximation is likely near-optimal given the submodularity properties of accessibility gains.
 
     \item \textbf{Single trip purpose.} Using employment as the sole destination attractor neglects other trip purposes (education, shopping, recreation) that constitute a significant share of cycling trips. Incorporating multiple attractor types with purpose-specific decay parameters would enrich the model.
 
