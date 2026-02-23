@@ -153,6 +153,47 @@ rankings_by_year  <- run_sensitivity_year(network, areas_proj, wishing,
 
 
 # =============================================================================
+# Step 6b: Sequential (greedy) rankings
+# =============================================================================
+
+message("\n", strrep("=", 60))
+message("STEP 6b: Sequential (greedy) rankings")
+message(strrep("=", 60))
+
+seq_rankings <- compute_sequential_rankings(network, areas_proj, wishing,
+                                            baseline_marked, DEFAULT_THETA,
+                                            DEFAULT_K, DEFAULT_YEAR)
+
+message("\nSequential top 10:")
+for (i in 1:min(10, nrow(seq_rankings))) {
+  message(sprintf("  %2d. %-35s  marginal %+.3f%%  cumulative %.3f%%",
+                  i, seq_rankings$name[i],
+                  seq_rankings$marginal_pct[i],
+                  seq_rankings$cumulative_pct[i]))
+}
+
+
+# =============================================================================
+# Step 6c: Subtractive rankings
+# =============================================================================
+
+message("\n", strrep("=", 60))
+message("STEP 6c: Subtractive rankings")
+message(strrep("=", 60))
+
+sub_result <- compute_subtractive_rankings(network, areas_proj, wishing,
+                                           baseline_marked, DEFAULT_THETA,
+                                           DEFAULT_K, DEFAULT_YEAR)
+sub_rankings <- sub_result$rankings
+
+message("\nSubtractive top 10:")
+for (i in 1:min(10, nrow(sub_rankings))) {
+  message(sprintf("  %2d. %-35s  loss %.3f%%",
+                  i, sub_rankings$name[i], sub_rankings$loss_pct[i]))
+}
+
+
+# =============================================================================
 # Step 7: Compute per-lane and cumulative impacts for figures
 # =============================================================================
 
@@ -313,6 +354,12 @@ write_table(generate_table4_wishing_list(wishing),
 write_table(generate_table5_rankings(rankings),
             file.path(tables_dir, "table5_rankings.tex"))
 
+write_table(generate_table5b_sequential(seq_rankings),
+            file.path(tables_dir, "table5b_sequential.tex"))
+
+write_table(generate_table5c_subtractive(sub_rankings),
+            file.path(tables_dir, "table5c_subtractive.tex"))
+
 write_table(generate_table6_sensitivity_k(rankings_by_k, K_VALUES),
             file.path(tables_dir, "table6_sensitivity_k.tex"))
 
@@ -322,7 +369,7 @@ write_table(generate_table7_sensitivity_theta(rankings_by_theta, THETA_VALUES),
 write_table(generate_table8_temporal(rankings_by_year, YEAR_VALUES),
             file.path(tables_dir, "table8_temporal.tex"))
 
-write_table(generate_table9_phases(rankings),
+write_table(generate_table9_phases(seq_rankings),
             file.path(tables_dir, "table9_phases.tex"))
 
 write_table(generate_table10_performance(),
