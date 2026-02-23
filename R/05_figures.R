@@ -137,6 +137,12 @@ add_colorbar <- function(values, mode = "accessibility") {
   text(x_right + (usr[2] - usr[1]) * 0.01,
        c(y_bot, (y_bot + y_top) / 2, y_top),
        labels = labels, adj = 0, cex = 0.6)
+
+  # Add "Low" and "High" labels at bottom and top of colour bar
+  text((x_left + x_right) / 2, y_bot - (usr[4] - usr[3]) * 0.03,
+       labels = "Low", cex = 0.7, font = 2)
+  text((x_left + x_right) / 2, y_top + (usr[4] - usr[3]) * 0.03,
+       labels = "High", cex = 0.7, font = 2)
 }
 
 
