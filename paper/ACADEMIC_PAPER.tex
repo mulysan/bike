@@ -291,4 +291,46 @@ If the graph contains disconnected components after the preceding steps, additio
 
 All distance calculations are performed in Israel Transverse Mercator (ITM, EPSG:2039), which provides sub-metre accuracy over the study area. Display and web-mapping outputs use WGS\,84 geographic coordinates (EPSG:4326).
 
+% ============================================================
+% 4. STUDY AREA AND DATA
+% ============================================================
+\section{Study Area and Data}
+\label{sec:data}
+
+\subsection{Study Area: Jerusalem}
+
+Jerusalem is Israel's largest city by population, with approximately 970{,}000 residents (2024). The city presents a distinctive set of challenges and opportunities for cycling infrastructure planning:
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Topography.} Elevation ranges from approximately 650\,m to 850\,m above sea level, with steep gradients in several corridors. While topography is not modelled explicitly in this study, it motivates careful attention to corridor selection.
+    \item \textbf{Urban structure.} The city comprises a complex mosaic of the historic Old City, modern commercial and institutional centres, residential neighbourhoods of varying density, and rapidly growing peripheral areas.
+    \item \textbf{Climate.} A Mediterranean climate with mild, wet winters and hot, dry summers provides a long cycling season (approximately 8--9 months per year with favourable conditions).
+    \item \textbf{Existing infrastructure.} Approximately 80\,km of bike lanes are currently operational or under construction, but significant gaps remain, particularly in the northern and southern corridors connecting residential neighbourhoods to the central business district.
+    \item \textbf{Policy context.} The Jerusalem Transportation Master Plan (JTMP) identifies cycling promotion as a strategic priority, with network expansion targets through 2040 and demographic projections for population and employment at the TAZ level.
+\end{itemize}
+
+\subsection{Data Sources}
+
+Table~\ref{tab:data_sources} summarises the data used in this analysis. All spatial data were processed using the \texttt{sf} package in R, with network construction and routing handled by \texttt{igraph}.
+
+\input{tables/table3_data_sources.tex}
+
+\noindent \textit{Note:} JTMP = Jerusalem Transportation Master Plan.
+
+\subsection{Network Characteristics}
+
+After preprocessing (Section~\ref{sec:preprocessing}), the routable network comprises the statistics shown in Table~\ref{tab:network_stats}.
+
+\input{tables/table11_network_stats.tex}
+
+The network covers the municipal area of Jerusalem plus a 1\,km buffer to avoid boundary artefacts in shortest-path computation.
+
+\subsection{Proposed Lanes (Wishing List)}
+
+Table~\ref{tab:wishing_list} presents the 28 proposed bike lanes evaluated in this study. These lanes were identified by the author in consultation with local planners, targeting major gaps in the existing network. Lengths were computed from the GIS geometries in Israel Transverse Mercator projection.
+
+\input{tables/table4_wishing_list.tex}
+
+Proposed lanes range in length from 502\,m (David HaMelech, a short central connector) to 5{,}199\,m (Derech Hebron, a major north--south arterial). The total length of all 28 proposals is approximately 48\,km.
+
 \end{document}
