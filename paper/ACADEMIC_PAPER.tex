@@ -474,4 +474,83 @@ Figure~\ref{fig:improvement_top5} maps the zone-level percentage change in both 
 
 The northern zones show the largest origin-accessibility gains, reflecting the combined effect of Bar Lev, Yirmiyahu, and Shamgar. Central zones benefit primarily through improved destination accessibility, as the Bezalel--Rabin and Golda--Shmuel HaNavi lanes make central employment more reachable. Eastern Jerusalem zones show minimal improvement, consistent with the absence of proposed lanes in that part of the city.
 
+% ============================================================
+% 6. DISCUSSION
+% ============================================================
+\section{Discussion}
+\label{sec:discussion}
+
+\subsection{Interpretation of Results}
+
+The analysis reveals striking heterogeneity in the accessibility contributions of candidate bike lanes. The top-ranked lane (Bar Lev, 9.46\%) contributes roughly 68 times as much as the lowest-ranked lane (David HaMelech, 0.14\%). This disparity has a clear policy implication: ad hoc selection of lanes---whether driven by political convenience, land availability, or construction ease---risks investing in segments near the bottom of the ranking while forgoing orders-of-magnitude larger accessibility gains.
+
+Three structural factors explain why certain lanes rank highly:
+
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{Network bridging.} The highest-ranked lanes are those that bridge critical gaps in the existing network, connecting previously isolated sub-networks into a coherent whole. Bar Lev and Yirmiyahu together create a connected northern grid that dramatically reduces effective distances for a large residential catchment. This finding is consistent with the ``missing link'' literature \citep{schoner2014missing,furth2016network}, which predicts that gap-closure investments yield outsized connectivity returns.
+
+    \item \textbf{Corridor alignment.} Lanes that follow major travel corridors serve a large number of origin--destination pairs. Bar Lev (north--south) and Yirmiyahu (east--west) are both arterial-grade corridors; their accessibility contributions derive not only from their own length but from the multitude of TAZ pairs whose shortest paths they enter.
+
+    \item \textbf{Centrality.} Bezalel--Rabin is shorter than either Bar Lev or Yirmiyahu, yet ranks third, because it occupies a central position in the network where population and employment densities are highest. Centrally located links affect more distance-weighted interactions than peripheral ones of equal length.
+\end{enumerate}
+
+The sensitivity analyses provide additional insight. The robustness of Bar Lev and Yirmiyahu to variation in $K$ and $\theta$ indicates that these lanes are ``no regret'' investments: they rank highly regardless of assumptions about cyclist preferences or trip-length distributions. In contrast, some lower-ranked lanes are more parameter-sensitive. For example, Shamgar--Ohel Yehoshua rises to rank 1 only at $\theta = -3.0$, the most extreme local-trip scenario, suggesting that its value is concentrated in enabling short-distance connections.
+
+The temporal stability of rankings (identical top-5 from 2020 to 2040) is reassuring for long-term infrastructure planning. It implies that the priority ordering is driven primarily by network topology and the spatial distribution of population and employment---both of which are relatively stable over a 20-year horizon---rather than by the specific magnitude of demographic projections.
+
+\subsection{Policy Implications}
+
+\paragraph{Strategic sequencing.}
+The phased-implementation analysis (Table~\ref{tab:phases}) demonstrates strong front-loading of benefits: three lanes deliver 23.61\% improvement, while the next three add only 10.94 percentage points. This pattern supports a ``quick wins first'' strategy in which the most cost-effective investments are funded early, building momentum and public support for subsequent phases.
+
+\paragraph{Budget optimisation.}
+By pairing our accessibility-improvement estimates with lane-specific construction cost data (not available for this study), planners can compute benefit--cost ratios for each candidate and fund lanes in order of accessibility gain per unit cost, subject to budget constraints.
+
+\paragraph{Stakeholder communication.}
+The percentage-improvement metric provides an intuitive and easily communicated measure of lane value. Telling a city council that ``Bar Lev Boulevard would improve city-wide cycling accessibility by nearly 10\%'' is more persuasive and concrete than presenting abstract connectivity indices or demand forecasts.
+
+\paragraph{Interactive scenario analysis.}
+The web-based tool enables non-technical stakeholders---elected officials, community groups, advocacy organisations---to toggle lanes on and off, adjust parameters, and immediately see the effect on accessibility maps and rankings. This transparency supports participatory planning processes and can help defuse opposition by demonstrating the evidence base behind prioritisation decisions.
+
+\subsection{Parameter Selection Guidance}
+
+Practitioners applying this framework to other cities should consider the following guidance for parameter selection:
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{$K$ selection.} Revealed-preference route-choice studies \citep{broach2012bicycle,winters2010far} suggest that cyclists are willing to travel 20--70\% farther to use protected facilities, corresponding roughly to $K \in [2, 10]$. Higher values ($K = 50$--100) may be appropriate for cities with fast arterial traffic and a large ``interested but concerned'' population.
+    \item \textbf{$\theta$ selection.} The distance-decay exponent can be calibrated from local trip-length distributions. A moderate value of $\theta = -1.0$ is consistent with mean commute cycling distances of 3--7\,km observed in European cities \citep{heinen2010commuter}. Cities with shorter average trips (e.g.\ compact Asian cities) may warrant $\theta = -1.5$ to $-2.0$.
+    \item \textbf{Projection year.} For major infrastructure investments with 30+ year service lives, we recommend evaluating rankings at multiple demographic horizons (as in Table~\ref{tab:temporal}) and prioritising lanes whose rankings are stable over time.
+\end{itemize}
+
+\subsection{Limitations}
+
+Several limitations should be noted:
+
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{Flat-network assumption.} The model does not incorporate elevation or gradient. In a hilly city like Jerusalem, this may cause the model to overstate the accessibility value of lanes on steep corridors. Incorporating directional elevation penalties (heavier uphill than downhill) is a natural extension.
+
+    \item \textbf{Homogeneous $K$.} A single penalty factor represents all cyclists. In practice, experienced commuters may tolerate mixed traffic ($K \approx 2$--5), while occasional riders and families require near-exclusive bike-lane routing ($K \gg 10$). A heterogeneous-agent extension could assign $K$ values drawn from a distribution and compute expected accessibility.
+
+    \item \textbf{Independent evaluation.} The additive-mode procedure evaluates each lane independently against the baseline. In reality, the value of lane $l$ may depend on whether lane $l'$ has already been built (complementarity or substitution). A sequential greedy algorithm---adding the best lane, updating the baseline, and repeating---could capture such interactions at the cost of $O(L^2)$ rather than $O(L)$ accessibility computations.
+
+    \item \textbf{Single trip purpose.} Using employment as the sole destination attractor neglects other trip purposes (education, shopping, recreation) that constitute a significant share of cycling trips. Incorporating multiple attractor types with purpose-specific decay parameters would enrich the model.
+
+    \item \textbf{Infrastructure quality.} All bike lanes are treated identically regardless of design quality (separated cycle track vs.\ painted lane vs.\ shared path). Differentiated $K$ values by facility type could be introduced.
+
+    \item \textbf{Network data quality.} OpenStreetMap coverage, while generally good in Jerusalem, may contain localised errors or omissions. Our preprocessing pipeline mitigates the most common issues, but residual inaccuracies may affect individual zone-level results.
+\end{enumerate}
+
+\subsection{Extensions and Future Research}
+
+Several promising extensions could enhance the framework:
+
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{Topography.} Integrating digital elevation models with directional slope penalties would improve realism in hilly cities.
+    \item \textbf{Multi-modal integration.} Extending the network to include cycling + public transit trips would capture first/last-mile connectivity benefits.
+    \item \textbf{Demand validation.} Comparing model-predicted accessibility improvements against observed changes in bike counts following lane construction would provide empirical validation.
+    \item \textbf{Equity analysis.} Disaggregating accessibility gains by income group, age, or neighbourhood deprivation level would enable equity-informed prioritisation.
+    \item \textbf{Cost--benefit integration.} Combining accessibility metrics with per-kilometre construction costs, health benefits, and emissions reductions would support full cost--benefit analysis.
+    \item \textbf{Sequential optimisation.} Implementing a greedy sequential algorithm or a budget-constrained optimisation formulation would address lane complementarities.
+\end{enumerate}
+
 \end{document}
