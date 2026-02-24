@@ -146,13 +146,17 @@ generate_table5_rankings <- function(rankings) {
 generate_table5b_sequential <- function(seq_rankings) {
   # Sequential greedy mode: each lane evaluated against the updated baseline
   # that includes all previously selected lanes.
+  # Includes length and marginal-per-km for cost-effectiveness comparison.
   n <- nrow(seq_rankings)
   rows <- character(n)
   for (i in seq_len(n)) {
-    name <- escape_latex(seq_rankings$name[i])
-    rows[i] <- sprintf("%d & %s & %.2f & %.2f",
-                       seq_rankings$rank[i], name,
-                       seq_rankings$marginal_pct[i],
+    name   <- escape_latex(seq_rankings$name[i])
+    len_km <- seq_rankings$length_m[i] / 1000
+    marg   <- seq_rankings$marginal_pct[i]
+    per_km <- if (len_km > 0) marg / len_km else 0
+    rows[i] <- sprintf("%d & %s & %.1f & %.2f & %.2f & %.2f",
+                       seq_rankings$rank[i], name, len_km,
+                       marg, per_km,
                        seq_rankings$cumulative_pct[i])
   }
 
@@ -161,9 +165,9 @@ generate_table5b_sequential <- function(seq_rankings) {
     '\\caption{Sequential (Greedy) Lane Rankings ($K=5$, $\\theta=-1.0$)}\n',
     '\\label{tab:sequential_rankings}\n',
     '\\small\n',
-    '\\begin{tabular}{@{}clcc@{}}\n\\toprule\n',
-    '\\textbf{Step} & \\textbf{Lane Name} & ',
-    '\\textbf{Marginal \\%} & \\textbf{Cumulative \\%} \\\\\n',
+    '\\begin{tabular}{@{}clcccc@{}}\n\\toprule\n',
+    '\\textbf{Step} & \\textbf{Lane Name} & \\textbf{Length (km)} & ',
+    '\\textbf{Marginal \\%} & \\textbf{\\% per km} & \\textbf{Cumulative \\%} \\\\\n',
     '\\midrule\n',
     paste(rows, collapse = " \\\\\n"), " \\\\\n",
     '\\bottomrule\n\\end{tabular}\n\\end{table}\n'
@@ -176,14 +180,17 @@ generate_table5b_sequential <- function(seq_rankings) {
 generate_table5c_subtractive <- function(sub_rankings) {
   # Subtractive mode: full network (baseline + all wishing-list lanes),
   # remove one lane at a time, measure % loss.
+  # Includes loss-per-km for cost-effectiveness comparison.
   n <- nrow(sub_rankings)
   rows <- character(n)
   for (i in seq_len(n)) {
     name    <- escape_latex(sub_rankings$name[i])
     len_km  <- sub_rankings$length_m[i] / 1000
-    rows[i] <- sprintf("%d & %s & %.1f & %.2f",
+    loss    <- sub_rankings$loss_pct[i]
+    per_km  <- if (len_km > 0) loss / len_km else 0
+    rows[i] <- sprintf("%d & %s & %.1f & %.2f & %.2f",
                        sub_rankings$rank[i], name, len_km,
-                       sub_rankings$loss_pct[i])
+                       loss, per_km)
   }
 
   paste0(
@@ -191,9 +198,9 @@ generate_table5c_subtractive <- function(sub_rankings) {
     '\\caption{Subtractive Lane Rankings -- Full Network Minus One ($K=5$, $\\theta=-1.0$)}\n',
     '\\label{tab:subtractive_rankings}\n',
     '\\small\n',
-    '\\begin{tabular}{@{}clcc@{}}\n\\toprule\n',
+    '\\begin{tabular}{@{}clccc@{}}\n\\toprule\n',
     '\\textbf{Rank} & \\textbf{Lane Name} & \\textbf{Length (km)} & ',
-    '\\textbf{\\% Loss} \\\\\n',
+    '\\textbf{\\% Loss} & \\textbf{\\% per km} \\\\\n',
     '\\midrule\n',
     paste(rows, collapse = " \\\\\n"), " \\\\\n",
     '\\bottomrule\n\\end{tabular}\n\\end{table}\n'

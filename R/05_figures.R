@@ -236,10 +236,12 @@ generate_figure4 <- function(areas, lane_impacts, output_path) {
     plot_areas(areas_wgs, li$imp_orig, "change",
                paste(li$name, "- Origin"), alpha = 0.6)
     plot_lane(li$geom_wgs84, col = LANE_ORANGE, lwd = 3)
+    add_colorbar(li$imp_orig, "change")
 
     plot_areas(areas_wgs, li$imp_dest, "change",
                paste(li$name, "- Destination"), alpha = 0.6)
     plot_lane(li$geom_wgs84, col = LANE_ORANGE, lwd = 3)
+    add_colorbar(li$imp_dest, "change")
   }
 
   title("Comparison of Top Ranked Lanes", outer = TRUE, line = -1,
