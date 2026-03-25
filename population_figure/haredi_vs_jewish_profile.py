@@ -80,43 +80,45 @@ print(f"\n  Haredi densities:  {[f'{d:,.0f}' for d in haredi_dens]}")
 print(f"  Jewish densities:  {[f'{d:,.0f}' for d in jewish_dens]}")
 print(f"  Haredi total: {haredi_total:,.0f}   Jewish total: {jewish_total:,.0f}")
 
-# ── Smooth asymmetric curves ──────────────────────────────────────────────────
-x_left  = -midpoints[::-1]
-x_right =  midpoints
-x       = np.concatenate([x_left, x_right])
-x_s     = np.linspace(x[0], x[-1], 500)
-mask_l  = x_s <= 0
-mask_r  = x_s >= 0
+# ── Asymmetric curves – each side tapers independently ───────────────────────
+rw = RING_WIDTH / 1000
 
-y_h = np.clip(make_interp_spline(x, np.concatenate([haredi_dens[::-1], haredi_dens]), k=3)(x_s), 0, None)
-y_j = np.clip(make_interp_spline(x, np.concatenate([jewish_dens[::-1], jewish_dens]), k=3)(x_s), 0, None)
+def _side_spline(dens, sign, n=250):
+    last_nz = max((i for i, d in enumerate(dens) if d > 0), default=0)
+    zero_x  = min((last_nz + 3) * rw, 16)
+    xs = np.array([(r + 0.5) * rw for r in range(last_nz + 1)] + [zero_x]) * sign
+    ys = np.array(list(dens[:last_nz + 1]) + [0])
+    if sign < 0:
+        xs, ys = xs[::-1], ys[::-1]
+    pts = np.linspace(xs[0], xs[-1], n)
+    return pts, np.clip(make_interp_spline(xs, ys, k=3)(pts), 0, None)
+
+xh, yh = _side_spline(haredi_dens, sign=-1)
+xj, yj = _side_spline(jewish_dens, sign=+1)
 
 # ── Plot ──────────────────────────────────────────────────────────────────────
 fig, ax = plt.subplots(figsize=(14, 7), facecolor=BG_COLOR)
 ax.set_facecolor(BG_COLOR)
 
-ax.plot(x_s[mask_l], y_h[mask_l], color=HAREDI_COLOR, linewidth=2.5, zorder=3)
-ax.fill_between(x_s[mask_l], y_h[mask_l], alpha=0.15, color=HAREDI_COLOR, zorder=2)
+ax.plot(xh, yh, color=HAREDI_COLOR, linewidth=2.5, zorder=3)
+ax.fill_between(xh, yh, alpha=0.15, color=HAREDI_COLOR, zorder=2)
 
-ax.plot(x_s[mask_r], y_j[mask_r], color=JEWISH_COLOR, linewidth=2.5, zorder=3)
-ax.fill_between(x_s[mask_r], y_j[mask_r], alpha=0.15, color=JEWISH_COLOR, zorder=2)
+ax.plot(xj, yj, color=JEWISH_COLOR, linewidth=2.5, zorder=3)
+ax.fill_between(xj, yj, alpha=0.15, color=JEWISH_COLOR, zorder=2)
 
 ax.axvline(0, color="#555555", linewidth=0.8, linestyle="--", zorder=4)
 
-# Peak labels
-h_pi = int(np.argmax(y_h[mask_l]))
-j_pi = int(np.argmax(y_j[mask_r]))
-ax.text(x_s[mask_l][h_pi], y_h[mask_l][h_pi] * 1.06,
+ax.text(xh[int(np.argmax(yh))], yh.max() * 1.06,
         f"Haredi  {haredi_total/1e3:.0f}k",
         color=HAREDI_COLOR, fontsize=13, fontweight="bold", ha="center", va="bottom")
-ax.text(x_s[mask_r][j_pi], y_j[mask_r][j_pi] * 1.06,
+ax.text(xj[int(np.argmax(yj))], yj.max() * 1.06,
         f"Non-Haredi Jewish  {jewish_total/1e3:.0f}k",
         color=JEWISH_COLOR, fontsize=13, fontweight="bold", ha="center", va="bottom")
 
 ax.grid(color=GRID_COLOR, linewidth=0.6, linestyle="-", zorder=1)
 ax.set_axisbelow(True)
 ax.set_xlim(-16, 16)
-ax.set_ylim(0, max(y_h.max(), y_j.max()) * 1.28)
+ax.set_ylim(0, max(yh.max(), yj.max()) * 1.28)
 
 x_ticks = list(range(-16, 0, 2)) + list(range(0, 17, 2))
 ax.set_xticks(x_ticks)

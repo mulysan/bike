@@ -81,8 +81,13 @@ for cfg in YEARS:
     total_pop = (inter_frac_16 * pop).fillna(0).sum()
     pop_label = f"{total_pop / 1e6:.2f}m"
 
-    x = np.concatenate([-midpoints[::-1], midpoints])
-    y = np.concatenate([densities[::-1], densities])
+    rw = RING_WIDTH / 1000
+    last_nz = max((i for i, d in enumerate(densities) if d > 0), default=0)
+    zero_x  = min((last_nz + 3) * rw, 16)
+    x_r = [(r + 0.5) * rw for r in range(last_nz + 1)] + [zero_x]
+    y_r = list(densities[:last_nz + 1]) + [0]
+    x   = np.array([-v for v in reversed(x_r)] + x_r)
+    y   = np.array(list(reversed(y_r)) + y_r)
 
     x_s = np.linspace(x[0], x[-1], 500)
     y_s = np.clip(make_interp_spline(x, y, k=3)(x_s), 0, None)

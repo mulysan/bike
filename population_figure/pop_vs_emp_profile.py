@@ -80,43 +80,38 @@ print(f"  Pop densities: {[f'{d:,.0f}' for d in pop_dens]}")
 print(f"  Emp densities: {[f'{d:,.0f}' for d in emp_dens]}")
 print(f"  Pop total: {pop_total:,.0f}   Emp total: {emp_total:,.0f}")
 
-# ── Smooth curves ─────────────────────────────────────────────────────────────
-# Left  (negative x) = population, outward from centre
-# Right (positive x) = employment, outward from centre
-x_left  = -midpoints[::-1]
-x_right =  midpoints
+# ── Smooth curves (each side tapers independently to zero) ───────────────────
+rw = RING_WIDTH / 1000
 
-x = np.concatenate([x_left, x_right])
-y_pop_sym = np.concatenate([pop_dens[::-1], pop_dens])   # full mirror for spline
-y_emp_sym = np.concatenate([emp_dens[::-1], emp_dens])
+def _side_spline(dens, sign, n=250):
+    last_nz = max((i for i, d in enumerate(dens) if d > 0), default=0)
+    zero_x  = min((last_nz + 3) * rw, 16)
+    xs = np.array([(r + 0.5) * rw for r in range(last_nz + 1)] + [zero_x]) * sign
+    ys = np.array(list(dens[:last_nz + 1]) + [0])
+    if sign < 0:
+        xs, ys = xs[::-1], ys[::-1]
+    pts = np.linspace(xs[0], xs[-1], n)
+    return pts, np.clip(make_interp_spline(xs, ys, k=3)(pts), 0, None)
 
-x_s = np.linspace(x[0], x[-1], 500)
-mask_l = x_s <= 0
-mask_r = x_s >= 0
-
-y_pop_s = np.clip(make_interp_spline(x, y_pop_sym, k=3)(x_s), 0, None)
-y_emp_s = np.clip(make_interp_spline(x, y_emp_sym, k=3)(x_s), 0, None)
+x_pop, y_pop_s = _side_spline(pop_dens, sign=-1)
+x_emp, y_emp_s = _side_spline(emp_dens, sign=+1)
 
 # ── Plot ──────────────────────────────────────────────────────────────────────
 fig, ax = plt.subplots(figsize=(14, 7), facecolor=BG_COLOR)
 ax.set_facecolor(BG_COLOR)
 
-ax.plot(x_s[mask_l], y_pop_s[mask_l], color=POP_COLOR, linewidth=2.5, zorder=3)
-ax.fill_between(x_s[mask_l], y_pop_s[mask_l], alpha=0.15, color=POP_COLOR, zorder=2)
+ax.plot(x_pop, y_pop_s, color=POP_COLOR, linewidth=2.5, zorder=3)
+ax.fill_between(x_pop, y_pop_s, alpha=0.15, color=POP_COLOR, zorder=2)
 
-ax.plot(x_s[mask_r], y_emp_s[mask_r], color=EMP_COLOR, linewidth=2.5, zorder=3)
-ax.fill_between(x_s[mask_r], y_emp_s[mask_r], alpha=0.15, color=EMP_COLOR, zorder=2)
+ax.plot(x_emp, y_emp_s, color=EMP_COLOR, linewidth=2.5, zorder=3)
+ax.fill_between(x_emp, y_emp_s, alpha=0.15, color=EMP_COLOR, zorder=2)
 
 ax.axvline(0, color="#555555", linewidth=0.8, linestyle="--", zorder=4)
 
-# Peak labels
-pop_pi = int(np.argmax(y_pop_s[mask_l]))
-emp_pi = int(np.argmax(y_emp_s[mask_r]))
-
-ax.text(x_s[mask_l][pop_pi], y_pop_s[mask_l][pop_pi] * 1.06,
+ax.text(x_pop[int(np.argmax(y_pop_s))], y_pop_s.max() * 1.06,
         f"Population  {pop_total/1e6:.2f}m",
         color=POP_COLOR, fontsize=13, fontweight="bold", ha="center", va="bottom")
-ax.text(x_s[mask_r][emp_pi], y_emp_s[mask_r][emp_pi] * 1.06,
+ax.text(x_emp[int(np.argmax(y_emp_s))], y_emp_s.max() * 1.06,
         f"Employment  {emp_total/1e3:.0f}k",
         color=EMP_COLOR, fontsize=13, fontweight="bold", ha="center", va="bottom")
 
@@ -124,7 +119,7 @@ ax.text(x_s[mask_r][emp_pi], y_emp_s[mask_r][emp_pi] * 1.06,
 ax.grid(color=GRID_COLOR, linewidth=0.6, linestyle="-", zorder=1)
 ax.set_axisbelow(True)
 ax.set_xlim(-16, 16)
-ax.set_ylim(0, max(y_pop_s.max(), y_emp_s.max()) * 1.28)
+ax.set_ylim(0, max(y_pop_s.max(), y_emp_s.max()) * 1.28)  # noqa: already updated vars
 
 x_ticks = list(range(-16, 0, 2)) + list(range(0, 17, 2))
 ax.set_xticks(x_ticks)

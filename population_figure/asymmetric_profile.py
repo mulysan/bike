@@ -89,47 +89,46 @@ print(f"  Jewish total: {jewish_total:,.0f}   Arab total: {arab_total:,.0f}")
 # ── Build asymmetric x / y ────────────────────────────────────────────────────
 # Left  (negative x) = Jewish, reading outward from centre to left
 # Right (positive x) = Arab,   reading outward from centre to right
-x_left  = -midpoints[::-1]          # -15, -13, …, -1
-x_right =  midpoints                #   1,   3, …,  15
+rw = RING_WIDTH / 1000
 
-y_left  = np.array(jewish_dens[::-1])
-y_right = np.array(arab_dens)
+def _side_spline(dens, sign, n=250):
+    """Build a spline for one side (+1=right, -1=left) with gradual taper to zero."""
+    last_nz = max((i for i, d in enumerate(dens) if d > 0), default=0)
+    zero_x  = min((last_nz + 3) * rw, 16)
+    xs = [(r + 0.5) * rw for r in range(last_nz + 1)] + [zero_x]
+    ys = list(dens[:last_nz + 1]) + [0]
+    xs = np.array(xs) * sign
+    if sign < 0:
+        xs, ys = xs[::-1], ys[::-1]
+    pts = np.linspace(xs[0], xs[-1], n)
+    return pts, np.clip(make_interp_spline(xs, ys, k=3)(pts), 0, None)
 
-x = np.concatenate([x_left, x_right])
-y = np.concatenate([y_left, y_right])
+x_sl, y_sl = _side_spline(jewish_dens, sign=-1)
+x_sr, y_sr = _side_spline(arab_dens,   sign=+1)
 
-x_s = np.linspace(x[0], x[-1], 500)
-y_s = np.clip(make_interp_spline(x, y, k=3)(x_s), 0, None)
-
-# Separate smooth halves for individual fills
-mask_left  = x_s <= 0
-mask_right = x_s >= 0
+mask_left  = x_sl <= 0
+mask_right = x_sr >= 0
 
 # ── Plot ──────────────────────────────────────────────────────────────────────
 fig, ax = plt.subplots(figsize=(14, 7), facecolor=BG_COLOR)
 ax.set_facecolor(BG_COLOR)
 
 # Left (Jewish) – cyan
-ax.plot(x_s[mask_left],  y_s[mask_left],  color=JEWISH_COLOR, linewidth=2.5, zorder=3)
-ax.fill_between(x_s[mask_left], y_s[mask_left], alpha=0.15, color=JEWISH_COLOR, zorder=2)
+ax.plot(x_sl, y_sl, color=JEWISH_COLOR, linewidth=2.5, zorder=3)
+ax.fill_between(x_sl, y_sl, alpha=0.15, color=JEWISH_COLOR, zorder=2)
 
 # Right (Arab) – orange
-ax.plot(x_s[mask_right], y_s[mask_right], color=ARAB_COLOR,   linewidth=2.5, zorder=3)
-ax.fill_between(x_s[mask_right], y_s[mask_right], alpha=0.15, color=ARAB_COLOR, zorder=2)
+ax.plot(x_sr, y_sr, color=ARAB_COLOR, linewidth=2.5, zorder=3)
+ax.fill_between(x_sr, y_sr, alpha=0.15, color=ARAB_COLOR, zorder=2)
 
 # Centre divider
 ax.axvline(0, color="#555555", linewidth=0.8, linestyle="--", zorder=4)
 
 # Labels
-jewish_peak_i = int(np.argmax(y_s[mask_left]))
-arab_peak_i   = int(np.argmax(y_s[mask_right]))
-x_lp = x_s[mask_left][jewish_peak_i]
-x_rp = x_s[mask_right][arab_peak_i]
-
-ax.text(x_lp, y_s[mask_left][jewish_peak_i]  * 1.06,
+ax.text(x_sl[int(np.argmax(y_sl))], y_sl.max() * 1.06,
         f"Jewish  {jewish_total/1e6:.2f}m",
         color=JEWISH_COLOR, fontsize=13, fontweight="bold", ha="center", va="bottom")
-ax.text(x_rp, y_s[mask_right][arab_peak_i] * 1.06,
+ax.text(x_sr[int(np.argmax(y_sr))], y_sr.max() * 1.06,
         f"Arab  {arab_total/1e6:.2f}m",
         color=ARAB_COLOR, fontsize=13, fontweight="bold", ha="center", va="bottom")
 
@@ -143,7 +142,7 @@ ax.text( 14, ax.get_ylim()[1] * 0.02 if ax.get_ylim()[1] > 0 else 200,
 ax.grid(color=GRID_COLOR, linewidth=0.6, linestyle="-", zorder=1)
 ax.set_axisbelow(True)
 ax.set_xlim(-16, 16)
-ax.set_ylim(0, y_s.max() * 1.28)
+ax.set_ylim(0, max(y_sl.max(), y_sr.max()) * 1.28)
 
 x_ticks = list(range(-16, 0, 2)) + list(range(0, 17, 2))
 ax.set_xticks(x_ticks)
