@@ -11,7 +11,6 @@ import geopandas as gpd
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from scipy.interpolate import make_interp_spline
 from shapely.geometry import Point
 import os
 
@@ -80,43 +79,49 @@ print(f"\n  Haredi densities:  {[f'{d:,.0f}' for d in haredi_dens]}")
 print(f"  Jewish densities:  {[f'{d:,.0f}' for d in jewish_dens]}")
 print(f"  Haredi total: {haredi_total:,.0f}   Jewish total: {jewish_total:,.0f}")
 
-# ── Smooth asymmetric curves ──────────────────────────────────────────────────
-x_left  = -midpoints[::-1]
-x_right =  midpoints
-x       = np.concatenate([x_left, x_right])
-x_s     = np.linspace(x[0], x[-1], 500)
-mask_l  = x_s <= 0
-mask_r  = x_s >= 0
+# ── Step arrays ───────────────────────────────────────────────────────────────
+rw = RING_WIDTH / 1000
 
-y_h = np.clip(make_interp_spline(x, np.concatenate([haredi_dens[::-1], haredi_dens]), k=3)(x_s), 0, None)
-y_j = np.clip(make_interp_spline(x, np.concatenate([jewish_dens[::-1], jewish_dens]), k=3)(x_s), 0, None)
+def steps_left(dens):
+    x, y = [], []
+    for r in range(len(dens) - 1, -1, -1):
+        x += [-(r + 1) * rw, -r * rw]
+        y += [dens[r], dens[r]]
+    return np.array(x), np.array(y)
+
+def steps_right(dens):
+    x, y = [], []
+    for r in range(len(dens)):
+        x += [r * rw, (r + 1) * rw]
+        y += [dens[r], dens[r]]
+    return np.array(x), np.array(y)
+
+xh, yh = steps_left(haredi_dens)
+xj, yj = steps_right(jewish_dens)
 
 # ── Plot ──────────────────────────────────────────────────────────────────────
 fig, ax = plt.subplots(figsize=(14, 7), facecolor=BG_COLOR)
 ax.set_facecolor(BG_COLOR)
 
-ax.plot(x_s[mask_l], y_h[mask_l], color=HAREDI_COLOR, linewidth=2.5, zorder=3)
-ax.fill_between(x_s[mask_l], y_h[mask_l], alpha=0.15, color=HAREDI_COLOR, zorder=2)
+ax.plot(xh, yh, color=HAREDI_COLOR, linewidth=2.0, zorder=3)
+ax.fill_between(xh, yh, alpha=0.15, color=HAREDI_COLOR, zorder=2)
 
-ax.plot(x_s[mask_r], y_j[mask_r], color=JEWISH_COLOR, linewidth=2.5, zorder=3)
-ax.fill_between(x_s[mask_r], y_j[mask_r], alpha=0.15, color=JEWISH_COLOR, zorder=2)
+ax.plot(xj, yj, color=JEWISH_COLOR, linewidth=2.0, zorder=3)
+ax.fill_between(xj, yj, alpha=0.15, color=JEWISH_COLOR, zorder=2)
 
 ax.axvline(0, color="#555555", linewidth=0.8, linestyle="--", zorder=4)
 
-# Peak labels
-h_pi = int(np.argmax(y_h[mask_l]))
-j_pi = int(np.argmax(y_j[mask_r]))
-ax.text(x_s[mask_l][h_pi], y_h[mask_l][h_pi] * 1.06,
+ax.text(-rw / 2, haredi_dens[0] * 1.06,
         f"Haredi  {haredi_total/1e3:.0f}k",
         color=HAREDI_COLOR, fontsize=13, fontweight="bold", ha="center", va="bottom")
-ax.text(x_s[mask_r][j_pi], y_j[mask_r][j_pi] * 1.06,
+ax.text( rw / 2, jewish_dens[0] * 1.06,
         f"Non-Haredi Jewish  {jewish_total/1e3:.0f}k",
         color=JEWISH_COLOR, fontsize=13, fontweight="bold", ha="center", va="bottom")
 
 ax.grid(color=GRID_COLOR, linewidth=0.6, linestyle="-", zorder=1)
 ax.set_axisbelow(True)
 ax.set_xlim(-16, 16)
-ax.set_ylim(0, max(y_h.max(), y_j.max()) * 1.28)
+ax.set_ylim(0, max(yh.max(), yj.max()) * 1.28)
 
 x_ticks = list(range(-16, 0, 2)) + list(range(0, 17, 2))
 ax.set_xticks(x_ticks)

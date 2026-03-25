@@ -12,7 +12,6 @@ import geopandas as gpd
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from scipy.interpolate import make_interp_spline
 from shapely.geometry import Point
 import os
 
@@ -90,21 +89,25 @@ def make_figure(year):
     pop_label = f"{total_pop / 1e6:.2f}m"
     print(f"  Total within 16 km: {total_pop:,.0f}  → {pop_label}")
 
-    x = np.concatenate([-MIDPOINTS[::-1], MIDPOINTS])
-    y = np.concatenate([ring_densities[::-1], ring_densities])
-
-    x_smooth = np.linspace(x[0], x[-1], 500)
-    y_smooth  = np.clip(make_interp_spline(x, y, k=3)(x_smooth), 0, None)
+    # Build symmetric step arrays (flat within each 2 km ring)
+    rw = RING_WIDTH / 1000  # 2 km
+    x_s, y_s = [], []
+    for r in range(N_RINGS - 1, -1, -1):   # left side: outer → inner
+        x_s += [-(r + 1) * rw, -r * rw]
+        y_s += [ring_densities[r], ring_densities[r]]
+    for r in range(N_RINGS):               # right side: inner → outer
+        x_s += [r * rw, (r + 1) * rw]
+        y_s += [ring_densities[r], ring_densities[r]]
+    x_s, y_s = np.array(x_s), np.array(y_s)
 
     fig, ax = plt.subplots(figsize=(14, 7), facecolor=BG_COLOR)
     ax.set_facecolor(BG_COLOR)
 
-    ax.plot(x_smooth, y_smooth, color=CITY_COLOR, linewidth=2.5, zorder=3)
-    ax.fill_between(x_smooth, y_smooth, alpha=FILL_ALPHA, color=CITY_COLOR, zorder=2)
+    ax.plot(x_s, y_s, color=CITY_COLOR, linewidth=2.0, zorder=3)
+    ax.fill_between(x_s, y_s, alpha=FILL_ALPHA, color=CITY_COLOR, zorder=2)
 
-    peak_i = int(np.argmax(y_smooth))
     ax.text(
-        x_smooth[peak_i], y_smooth[peak_i] * 1.06,
+        0, ring_densities[0] * 1.06,
         f"Jerusalem {pop_label}",
         color=CITY_COLOR, fontsize=14, fontweight="bold",
         ha="center", va="bottom",
@@ -114,7 +117,7 @@ def make_figure(year):
     ax.set_axisbelow(True)
 
     ax.set_xlim(-16, 16)
-    ax.set_ylim(0, y_smooth.max() * 1.25)
+    ax.set_ylim(0, y_s.max() * 1.25)
     x_ticks = list(range(-16, 0, 2)) + list(range(0, 17, 2))
     ax.set_xticks(x_ticks)
     ax.set_xticklabels([str(abs(v)) for v in x_ticks], color=TEXT_COLOR, fontsize=10)
