@@ -12,6 +12,7 @@ import geopandas as gpd
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from scipy.interpolate import make_interp_spline
 from shapely.geometry import Point
 import os
 
@@ -98,22 +99,19 @@ for cfg in YEARS:
     total_pop = (inter_frac_16 * pop).fillna(0).sum()
     pop_label = f"{total_pop / 1e6:.2f}m"
 
-    rw = RING_WIDTH / 1000
-    x_s, y_s = [], []
-    for r in range(N_RINGS - 1, -1, -1):
-        x_s += [-(r + 1) * rw, -r * rw]
-        y_s += [densities[r], densities[r]]
-    for r in range(N_RINGS):
-        x_s += [r * rw, (r + 1) * rw]
-        y_s += [densities[r], densities[r]]
-    x_s, y_s = np.array(x_s), np.array(y_s)
+    x = np.concatenate([-midpoints[::-1], midpoints])
+    y = np.concatenate([densities[::-1], densities])
+
+    x_s = np.linspace(x[0], x[-1], 500)
+    y_s = np.clip(make_interp_spline(x, y, k=3)(x_s), 0, None)
     y_max_global = max(y_max_global, y_s.max())
 
-    ax.plot(x_s, y_s, color=color, linewidth=2.0, zorder=3)
+    ax.plot(x_s, y_s, color=color, linewidth=2.5, zorder=3)
     ax.fill_between(x_s, y_s, alpha=0.12, color=color, zorder=2)
 
+    peak_i = int(np.argmax(y_s))
     ax.text(
-        0, densities[0] * cfg["label_offset"],
+        x_s[peak_i], y_s[peak_i] * cfg["label_offset"],
         f"Jerusalem (Jewish) {year}  {pop_label}",
         color=color, fontsize=13, fontweight="bold",
         ha="center", va="bottom",

@@ -13,6 +13,7 @@ import geopandas as gpd
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from scipy.interpolate import make_interp_spline
 from shapely.geometry import Point
 import os
 
@@ -85,51 +86,64 @@ print(f"\n  Jewish densities: {[f'{d:,.0f}' for d in jewish_dens]}")
 print(f"  Arab   densities: {[f'{d:,.0f}' for d in arab_dens]}")
 print(f"  Jewish total: {jewish_total:,.0f}   Arab total: {arab_total:,.0f}")
 
-# ── Build step arrays for each side ──────────────────────────────────────────
-rw = RING_WIDTH / 1000  # 2 km
+# ── Build asymmetric x / y ────────────────────────────────────────────────────
+# Left  (negative x) = Jewish, reading outward from centre to left
+# Right (positive x) = Arab,   reading outward from centre to right
+x_left  = -midpoints[::-1]          # -15, -13, …, -1
+x_right =  midpoints                #   1,   3, …,  15
 
-def steps_left(dens):
-    x, y = [], []
-    for r in range(len(dens) - 1, -1, -1):
-        x += [-(r + 1) * rw, -r * rw]
-        y += [dens[r], dens[r]]
-    return np.array(x), np.array(y)
+y_left  = np.array(jewish_dens[::-1])
+y_right = np.array(arab_dens)
 
-def steps_right(dens):
-    x, y = [], []
-    for r in range(len(dens)):
-        x += [r * rw, (r + 1) * rw]
-        y += [dens[r], dens[r]]
-    return np.array(x), np.array(y)
+x = np.concatenate([x_left, x_right])
+y = np.concatenate([y_left, y_right])
 
-xl, yl = steps_left(jewish_dens)
-xr, yr = steps_right(arab_dens)
+x_s = np.linspace(x[0], x[-1], 500)
+y_s = np.clip(make_interp_spline(x, y, k=3)(x_s), 0, None)
+
+# Separate smooth halves for individual fills
+mask_left  = x_s <= 0
+mask_right = x_s >= 0
 
 # ── Plot ──────────────────────────────────────────────────────────────────────
 fig, ax = plt.subplots(figsize=(14, 7), facecolor=BG_COLOR)
 ax.set_facecolor(BG_COLOR)
 
-ax.plot(xl, yl, color=JEWISH_COLOR, linewidth=2.0, zorder=3)
-ax.fill_between(xl, yl, alpha=0.15, color=JEWISH_COLOR, zorder=2)
+# Left (Jewish) – cyan
+ax.plot(x_s[mask_left],  y_s[mask_left],  color=JEWISH_COLOR, linewidth=2.5, zorder=3)
+ax.fill_between(x_s[mask_left], y_s[mask_left], alpha=0.15, color=JEWISH_COLOR, zorder=2)
 
-ax.plot(xr, yr, color=ARAB_COLOR, linewidth=2.0, zorder=3)
-ax.fill_between(xr, yr, alpha=0.15, color=ARAB_COLOR, zorder=2)
+# Right (Arab) – orange
+ax.plot(x_s[mask_right], y_s[mask_right], color=ARAB_COLOR,   linewidth=2.5, zorder=3)
+ax.fill_between(x_s[mask_right], y_s[mask_right], alpha=0.15, color=ARAB_COLOR, zorder=2)
 
+# Centre divider
 ax.axvline(0, color="#555555", linewidth=0.8, linestyle="--", zorder=4)
 
-# Labels at peak ring
-ax.text(-rw / 2, jewish_dens[0] * 1.06,
+# Labels
+jewish_peak_i = int(np.argmax(y_s[mask_left]))
+arab_peak_i   = int(np.argmax(y_s[mask_right]))
+x_lp = x_s[mask_left][jewish_peak_i]
+x_rp = x_s[mask_right][arab_peak_i]
+
+ax.text(x_lp, y_s[mask_left][jewish_peak_i]  * 1.06,
         f"Jewish  {jewish_total/1e6:.2f}m",
         color=JEWISH_COLOR, fontsize=13, fontweight="bold", ha="center", va="bottom")
-ax.text( rw / 2, arab_dens[0] * 1.06,
+ax.text(x_rp, y_s[mask_right][arab_peak_i] * 1.06,
         f"Arab  {arab_total/1e6:.2f}m",
         color=ARAB_COLOR, fontsize=13, fontweight="bold", ha="center", va="bottom")
+
+# Side labels
+ax.text(-14, ax.get_ylim()[1] * 0.02 if ax.get_ylim()[1] > 0 else 200,
+        "← Jewish", color=JEWISH_COLOR, fontsize=10, alpha=0.6, va="bottom")
+ax.text( 14, ax.get_ylim()[1] * 0.02 if ax.get_ylim()[1] > 0 else 200,
+        "Arab →",   color=ARAB_COLOR,   fontsize=10, alpha=0.6, va="bottom", ha="right")
 
 # Grid & axes
 ax.grid(color=GRID_COLOR, linewidth=0.6, linestyle="-", zorder=1)
 ax.set_axisbelow(True)
 ax.set_xlim(-16, 16)
-ax.set_ylim(0, max(yl.max(), yr.max()) * 1.28)
+ax.set_ylim(0, y_s.max() * 1.28)
 
 x_ticks = list(range(-16, 0, 2)) + list(range(0, 17, 2))
 ax.set_xticks(x_ticks)

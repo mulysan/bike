@@ -10,6 +10,7 @@ import geopandas as gpd
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from scipy.interpolate import make_interp_spline
 from shapely.geometry import Point
 import os
 
@@ -85,41 +86,37 @@ print(f"  Pop total: {pop_total:,.0f}   Emp total: {emp_total:,.0f}")
 x_left  = -midpoints[::-1]
 x_right =  midpoints
 
-rw = RING_WIDTH / 1000
+x = np.concatenate([x_left, x_right])
+y_pop_sym = np.concatenate([pop_dens[::-1], pop_dens])   # full mirror for spline
+y_emp_sym = np.concatenate([emp_dens[::-1], emp_dens])
 
-def steps_left(dens):
-    x, y = [], []
-    for r in range(len(dens) - 1, -1, -1):
-        x += [-(r + 1) * rw, -r * rw]
-        y += [dens[r], dens[r]]
-    return np.array(x), np.array(y)
+x_s = np.linspace(x[0], x[-1], 500)
+mask_l = x_s <= 0
+mask_r = x_s >= 0
 
-def steps_right(dens):
-    x, y = [], []
-    for r in range(len(dens)):
-        x += [r * rw, (r + 1) * rw]
-        y += [dens[r], dens[r]]
-    return np.array(x), np.array(y)
-
-xl_pop, yl_pop = steps_left(pop_dens)
-xr_emp, yr_emp = steps_right(emp_dens)
+y_pop_s = np.clip(make_interp_spline(x, y_pop_sym, k=3)(x_s), 0, None)
+y_emp_s = np.clip(make_interp_spline(x, y_emp_sym, k=3)(x_s), 0, None)
 
 # ── Plot ──────────────────────────────────────────────────────────────────────
 fig, ax = plt.subplots(figsize=(14, 7), facecolor=BG_COLOR)
 ax.set_facecolor(BG_COLOR)
 
-ax.plot(xl_pop, yl_pop, color=POP_COLOR, linewidth=2.0, zorder=3)
-ax.fill_between(xl_pop, yl_pop, alpha=0.15, color=POP_COLOR, zorder=2)
+ax.plot(x_s[mask_l], y_pop_s[mask_l], color=POP_COLOR, linewidth=2.5, zorder=3)
+ax.fill_between(x_s[mask_l], y_pop_s[mask_l], alpha=0.15, color=POP_COLOR, zorder=2)
 
-ax.plot(xr_emp, yr_emp, color=EMP_COLOR, linewidth=2.0, zorder=3)
-ax.fill_between(xr_emp, yr_emp, alpha=0.15, color=EMP_COLOR, zorder=2)
+ax.plot(x_s[mask_r], y_emp_s[mask_r], color=EMP_COLOR, linewidth=2.5, zorder=3)
+ax.fill_between(x_s[mask_r], y_emp_s[mask_r], alpha=0.15, color=EMP_COLOR, zorder=2)
 
 ax.axvline(0, color="#555555", linewidth=0.8, linestyle="--", zorder=4)
 
-ax.text(-rw / 2, pop_dens[0] * 1.06,
+# Peak labels
+pop_pi = int(np.argmax(y_pop_s[mask_l]))
+emp_pi = int(np.argmax(y_emp_s[mask_r]))
+
+ax.text(x_s[mask_l][pop_pi], y_pop_s[mask_l][pop_pi] * 1.06,
         f"Population  {pop_total/1e6:.2f}m",
         color=POP_COLOR, fontsize=13, fontweight="bold", ha="center", va="bottom")
-ax.text( rw / 2, emp_dens[0] * 1.06,
+ax.text(x_s[mask_r][emp_pi], y_emp_s[mask_r][emp_pi] * 1.06,
         f"Employment  {emp_total/1e3:.0f}k",
         color=EMP_COLOR, fontsize=13, fontweight="bold", ha="center", va="bottom")
 
@@ -127,7 +124,7 @@ ax.text( rw / 2, emp_dens[0] * 1.06,
 ax.grid(color=GRID_COLOR, linewidth=0.6, linestyle="-", zorder=1)
 ax.set_axisbelow(True)
 ax.set_xlim(-16, 16)
-ax.set_ylim(0, max(yl_pop.max(), yr_emp.max()) * 1.28)
+ax.set_ylim(0, max(y_pop_s.max(), y_emp_s.max()) * 1.28)
 
 x_ticks = list(range(-16, 0, 2)) + list(range(0, 17, 2))
 ax.set_xticks(x_ticks)
