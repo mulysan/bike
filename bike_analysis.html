@@ -35,6 +35,8 @@ button:hover{background:#2980b9}
 .lane:hover{background:#d5dbdb}
 .lane.sel{background:#a9dfbf;border-color:#27ae60}
 .lane .pct{font-weight:700;color:#27ae60;white-space:nowrap;margin-left:8px}
+.lane .del-lane-btn{padding:2px 6px;font-size:11px;background:#e74c3c;color:#fff;border:none;border-radius:3px;cursor:pointer;opacity:0.6;flex-shrink:0;margin-left:6px}
+.lane .del-lane-btn:hover{opacity:1;background:#c0392b}
 .legend{position:absolute;bottom:30px;right:10px;background:#fff;padding:10px;border-radius:5px;box-shadow:0 2px 5px rgba(0,0,0,.3);z-index:1000;font-size:.85em}
 .legend-item{display:flex;align-items:center;gap:8px;margin:4px 0}
 .legend-line{width:24px;height:4px;border-radius:2px}
@@ -328,6 +330,7 @@ const CENTROIDS=[[35.241774,31.84271],[35.244311,31.840941],[35.193523,31.824071
 
 // === STATE ===
 const sel=new Set();
+const deletedLanes=new Set();
 let wishLyr,areasLyr,pathLyrGroup;
 let completedLyr,constructionLyr,planLyr,checkLyr;
 // Layer toggle state: which layers are included in the network for calculations
@@ -435,7 +438,7 @@ function onParamsChanged(){
 }
 
 function selectAllLanes(){
-  for(let i=0;i<LANE_NAMES.length;i++)sel.add(i);
+  for(let i=0;i<LANE_NAMES.length;i++)if(!deletedLanes.has(i))sel.add(i);
   refresh();
 }
 
@@ -455,8 +458,8 @@ function toggleLayer(name){
   if(name==='wishing'){
     if(cb.checked){
       wishLyr.addTo(map);
-      // Select all wishing lanes
-      for(let i=0;i<LANE_NAMES.length;i++)sel.add(i);
+      // Select all wishing lanes (skip deleted)
+      for(let i=0;i<LANE_NAMES.length;i++)if(!deletedLanes.has(i))sel.add(i);
     }else{
       map.removeLayer(wishLyr);
       sel.clear();
@@ -681,8 +684,15 @@ const areaNameToId={};
 function refresh(){
   // Update wishing layer style
   wishLyr.setStyle(f=>{
-    const s=sel.has(f.properties.lane_id);
+    const lid=f.properties.lane_id;
+    if(deletedLanes.has(lid))return {opacity:0,weight:0};
+    const s=sel.has(lid);
     return {color:s?"#9b59b6":"#FF9800",weight:s?5:3,opacity:.8};
+  });
+  wishLyr.eachLayer(l=>{
+    if(deletedLanes.has(l.feature.properties.lane_id)){
+      l.off('click');l.off('mouseover');l.off('mouseout');
+    }
   });
   // Update lane list
   buildLaneList();
@@ -697,16 +707,35 @@ function refresh(){
 
 function buildLaneList(){
   const search=(document.getElementById("laneSearch").value||"").toLowerCase();
-  // Build alphabetically sorted list
-  const items=LANE_NAMES.map((name,i)=>({id:i,name:name}));
+  // Build alphabetically sorted list, skip deleted lanes
+  const items=LANE_NAMES.map((name,i)=>({id:i,name:name})).filter(it=>!deletedLanes.has(it.id));
   items.sort((a,b)=>a.name.localeCompare(b.name,'he'));
   // Filter by search
   const filtered=search?items.filter(it=>it.name.toLowerCase().includes(search)):items;
   const container=document.getElementById("laneList");
-  container.innerHTML=filtered.map(it=>{
+  let html=filtered.map(it=>{
     const cls=sel.has(it.id)?"lane sel":"lane";
-    return '<div class="'+cls+'" onclick="toggleLane('+it.id+')"><span>'+it.name+'</span></div>';
+    return '<div class="'+cls+'" onclick="toggleLane('+it.id+')">'+
+      '<span>'+it.name+'</span>'+
+      '<button class="del-lane-btn" onclick="event.stopPropagation();deleteWishingLane('+it.id+')" title="Remove lane">✕</button>'+
+      '</div>';
   }).join("");
+  if(deletedLanes.size>0){
+    html='<div style="margin-bottom:8px;font-size:.85em;color:#888">'+deletedLanes.size+' lane'+(deletedLanes.size>1?'s':'')+' hidden. <a href="#" onclick="event.preventDefault();restoreAllLanes()">Restore all</a></div>'+html;
+  }
+  container.innerHTML=html;
+}
+
+function deleteWishingLane(id){
+  if(!confirm('Hide lane "'+LANE_NAMES[id]+'" from the list?'))return;
+  sel.delete(id);
+  deletedLanes.add(id);
+  refresh();
+}
+
+function restoreAllLanes(){
+  deletedLanes.clear();
+  refresh();
 }
 
 function filterLanes(){
