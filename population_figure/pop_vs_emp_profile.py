@@ -86,8 +86,8 @@ rw = RING_WIDTH / 1000
 def _side_spline(dens, sign, n=500):
     last_nz = max((i for i, d in enumerate(dens) if d > 0), default=0)
     zero_x  = min((last_nz + 3) * rw, 16)
-    xs = np.array([(r + 0.5) * rw for r in range(last_nz + 1)] + [zero_x]) * sign
-    ys = np.array(list(dens[:last_nz + 1]) + [0])
+    xs = np.array([0] + [(r + 0.5) * rw for r in range(last_nz + 1)] + [zero_x]) * sign
+    ys = np.array([dens[0]] + list(dens[:last_nz + 1]) + [0])
     if sign < 0:
         xs, ys = xs[::-1], ys[::-1]
     # Extend to full half: left -16→0, right 0→16

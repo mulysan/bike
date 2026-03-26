@@ -86,8 +86,8 @@ for cfg in YEARS:
     zero_x  = min((last_nz + 3) * rw, 16)
     x_r = [(r + 0.5) * rw for r in range(last_nz + 1)] + [zero_x]
     y_r = list(densities[:last_nz + 1]) + [0]
-    x   = np.array([-v for v in reversed(x_r)] + x_r)
-    y   = np.array(list(reversed(y_r)) + y_r)
+    x   = np.array([-v for v in reversed(x_r)] + [0] + x_r)
+    y   = np.array(list(reversed(y_r)) + [densities[0]] + y_r)
 
     x_s = np.linspace(-16, 16, 500)
     y_s = np.zeros(len(x_s))

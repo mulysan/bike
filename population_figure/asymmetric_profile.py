@@ -95,8 +95,8 @@ def _side_spline(dens, sign, n=500):
     """Build a spline for one side (+1=right, -1=left) with gradual taper to zero."""
     last_nz = max((i for i, d in enumerate(dens) if d > 0), default=0)
     zero_x  = min((last_nz + 3) * rw, 16)
-    xs = np.array([(r + 0.5) * rw for r in range(last_nz + 1)] + [zero_x]) * sign
-    ys = np.array(list(dens[:last_nz + 1]) + [0])
+    xs = np.array([0] + [(r + 0.5) * rw for r in range(last_nz + 1)] + [zero_x]) * sign
+    ys = np.array([dens[0]] + list(dens[:last_nz + 1]) + [0])
     if sign < 0:
         xs, ys = xs[::-1], ys[::-1]
     x_full = np.linspace(-16 if sign < 0 else 0, 0 if sign < 0 else 16, n)
