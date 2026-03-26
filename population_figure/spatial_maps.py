@@ -147,7 +147,14 @@ colors_ld = np.array([
 areas_wgs.plot(ax=ax2, color=colors_ld, edgecolor=BORDER_COLOR, linewidth=0.3)
 plot_star(ax2, centre_wgs)
 
-# Custom colorbar on log scale
+# Ring circles at 2, 4, 6, 8 km (same as distance map)
+for ring_km in [2, 4, 6, 8]:
+    ring_buf = centre_proj.buffer(ring_km * 1000)
+    ring_gdf = gpd.GeoDataFrame(geometry=[ring_buf], crs=areas.crs).to_crs("EPSG:4326")
+    ring_gdf.boundary.plot(ax=ax2, color="#555555", linewidth=0.6, linestyle="--")
+    ring_pt = ring_gdf.geometry.iloc[0].exterior.interpolate(0.25, normalized=True)
+    ax2.text(ring_pt.x, ring_pt.y, f"{ring_km} km",
+             color="#888888", fontsize=7, ha="left", va="bottom")
 sm2 = cm.ScalarMappable(cmap=SPECTRAL_CMAP, norm=mcolors.Normalize(vmin=vmin_ld, vmax=vmax_ld))
 sm2.set_array([])
 cb2 = fig2.colorbar(sm2, ax=ax2, fraction=0.03, pad=0.02, aspect=25)
