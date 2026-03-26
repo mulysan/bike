@@ -21,8 +21,8 @@ OUT_PATH = os.path.join(HERE, "jerusalem_density_profile_haredi_vs_jewish.png")
 
 KIKAR_ZION_LON = 35.2232
 KIKAR_ZION_LAT = 31.7785
-RING_WIDTH = 2_000
-N_RINGS    = 8
+RING_WIDTH = 1_000
+N_RINGS    = 16
 MAX_DIST   = RING_WIDTH * N_RINGS
 YEAR       = 2025
 POP_COL    = f"pop_{YEAR}"
@@ -135,7 +135,7 @@ ax.set_ylabel("Density (People per km²)",       color=TEXT_COLOR, fontsize=12, 
 fig.text(0.45, 0.97, f"Jerusalem – Haredi vs Non-Haredi Jewish Density Profile ({YEAR})",
          color=TEXT_COLOR, fontsize=16, fontweight="bold", ha="center", va="top")
 fig.text(0.45, 0.91,
-         "Radial Population Structure (0–16 km, 2 km bands)  ·  Left = Haredi  |  Right = Non-Haredi Jewish",
+         "Radial Population Structure (0–16 km, 1 km bands)  ·  Left = Haredi  |  Right = Non-Haredi Jewish",
          color="#AAAAAA", fontsize=10, ha="center", va="top")
 
 note = (

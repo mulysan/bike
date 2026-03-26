@@ -22,8 +22,8 @@ OUT_PATH = os.path.join(HERE, "jerusalem_density_profile_2020_2040_jewish.png")
 
 KIKAR_ZION_LON = 35.2232
 KIKAR_ZION_LAT = 31.7785
-RING_WIDTH = 2_000
-N_RINGS    = 8
+RING_WIDTH = 1_000
+N_RINGS    = 16
 MAX_DIST   = RING_WIDTH * N_RINGS
 
 JEWISH_SECTORS = {"Jewish", "U. Orthodox"}
@@ -145,7 +145,7 @@ ax.set_ylabel("Density (People per km²)",  color=TEXT_COLOR, fontsize=12, label
 
 fig.text(0.45, 0.97, "Jerusalem Density Profile – Jewish Areas – 2020 vs 2040",
          color=TEXT_COLOR, fontsize=17, fontweight="bold", ha="center", va="top")
-fig.text(0.45, 0.91, "Radial Population Structure (0–16 km, 2 km bands)",
+fig.text(0.45, 0.91, "Radial Population Structure (0–16 km, 1 km bands)",
          color="#AAAAAA", fontsize=11, ha="center", va="top")
 
 note = (

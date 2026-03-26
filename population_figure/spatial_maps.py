@@ -104,12 +104,11 @@ colors_d = [SPECTRAL_CMAP(norm_d(v)) for v in areas["dist_km"]]
 areas_wgs.plot(ax=ax1, color=colors_d, edgecolor=BORDER_COLOR, linewidth=0.3)
 plot_star(ax1, centre_wgs)
 
-# Ring circles at 2, 4, 6, 8 km for reference
-for ring_km in [2, 4, 6, 8]:
+# Ring circles at 1 km intervals for reference
+for ring_km in [1, 2, 3, 4, 5, 6, 7, 8]:
     ring_buf = centre_proj.buffer(ring_km * 1000)
     ring_gdf = gpd.GeoDataFrame(geometry=[ring_buf], crs=areas.crs).to_crs("EPSG:4326")
     ring_gdf.boundary.plot(ax=ax1, color="#555555", linewidth=0.6, linestyle="--")
-    # Label
     ring_pt = ring_gdf.geometry.iloc[0].exterior.interpolate(0.25, normalized=True)
     ax1.text(ring_pt.x, ring_pt.y, f"{ring_km} km",
              color="#888888", fontsize=7, ha="left", va="bottom")
@@ -150,7 +149,7 @@ areas_wgs.plot(ax=ax2, color=colors_ld, edgecolor=BORDER_COLOR, linewidth=0.3)
 plot_star(ax2, centre_wgs)
 
 # Ring circles at 2, 4, 6, 8 km (same as distance map)
-for ring_km in [2, 4, 6, 8]:
+for ring_km in [1, 2, 3, 4, 5, 6, 7, 8]:
     ring_buf = centre_proj.buffer(ring_km * 1000)
     ring_gdf = gpd.GeoDataFrame(geometry=[ring_buf], crs=areas.crs).to_crs("EPSG:4326")
     ring_gdf.boundary.plot(ax=ax2, color="#555555", linewidth=0.6, linestyle="--")
@@ -201,7 +200,7 @@ colors_le = np.array([
 areas_wgs.plot(ax=ax3, color=colors_le, edgecolor=BORDER_COLOR, linewidth=0.3)
 plot_star(ax3, centre_wgs)
 
-for ring_km in [2, 4, 6, 8]:
+for ring_km in [1, 2, 3, 4, 5, 6, 7, 8]:
     ring_buf = centre_proj.buffer(ring_km * 1000)
     ring_gdf = gpd.GeoDataFrame(geometry=[ring_buf], crs=areas.crs).to_crs("EPSG:4326")
     ring_gdf.boundary.plot(ax=ax3, color="#555555", linewidth=0.6, linestyle="--")

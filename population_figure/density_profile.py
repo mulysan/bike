@@ -2,7 +2,7 @@
 """
 density_profile.py
 Radial population density profile for Jerusalem, centered on Kikar Zion.
-Replicates the style of "European Density Profiles" (radial 2 km rings).
+Replicates the style of "European Density Profiles" (radial 1 km rings).
 
 Generates one figure per year in YEARS.
 """
@@ -23,8 +23,8 @@ SHP_PATH = os.path.join(HERE, "..", "jer_areas.shp")
 # ── Fixed parameters ──────────────────────────────────────────────────────────
 KIKAR_ZION_LON = 35.2232
 KIKAR_ZION_LAT = 31.7785
-RING_WIDTH = 2_000   # metres (2 km)
-N_RINGS    = 8       # bands 0-2, 2-4, …, 14-16 km
+RING_WIDTH = 1_000   # metres (1 km)
+N_RINGS    = 16       # bands 0-1, 1-2, …, 15-16 km
 MAX_DIST   = RING_WIDTH * N_RINGS   # 16 km
 YEARS      = [2020, 2025, 2040]
 
@@ -134,7 +134,7 @@ def make_figure(year):
 
     fig.text(0.45, 0.97, f"Jerusalem Density Profile – {year}",
              color=TEXT_COLOR, fontsize=18, fontweight="bold", ha="center", va="top")
-    fig.text(0.45, 0.91, "Radial Population Structure (0–16 km, 2 km bands)",
+    fig.text(0.45, 0.91, "Radial Population Structure (0–16 km, 1 km bands)",
              color="#AAAAAA", fontsize=11, ha="center", va="top")
 
     methodology = (
