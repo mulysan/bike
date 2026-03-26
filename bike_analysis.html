@@ -332,6 +332,10 @@ const CENTROIDS=[[35.241774,31.84271],[35.244311,31.840941],[35.193523,31.824071
 const sel=new Set();
 const deletedLanes=new Set();
 let wishLyr,areasLyr,pathLyrGroup;
+
+// Registry for deletable existing lane segments
+const _segReg={};
+let _segUid=0;
 let completedLyr,constructionLyr,planLyr,checkLyr;
 // Layer toggle state: which layers are included in the network for calculations
 const activeLayers={completed:true,construction:true,plan:false,check:false,wishing:false};
@@ -614,18 +618,31 @@ areasLyr=L.geoJSON(AREAS,{
   }
 }).addTo(map);
 
-// Helper to create a lane layer with popup
+// Helper to create a lane layer with popup and delete button
 function makeLaneLayer(data,color,label){
-  return L.geoJSON(data,{style:{color:color,weight:3,opacity:.8},
-    onEachFeature:(f,l)=>{
-      const content="<b>"+label+":</b> "+(f.properties.Name||"");
-      l.on('click',function(e){
-        if(isDrawing)return;
-        if(pickingPointFor){onPathPointClick(e);return;}
-        L.popup().setLatLng(e.latlng).setContent(content).openOn(map);
-      });
-    }
+  const geoLayer=L.geoJSON(data,{style:{color:color,weight:3,opacity:.8}});
+  geoLayer.eachLayer(l=>{
+    const uid=_segUid++;
+    _segReg[uid]={parent:geoLayer,layer:l};
+    const name=l.feature.properties.Name||"(unnamed)";
+    const content="<b>"+label+":</b> "+name+
+      '<br><button onclick="deleteExistingSegment('+uid+')" style="margin-top:6px;padding:3px 10px;background:#e74c3c;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:12px">Delete this segment</button>';
+    l.on('click',function(e){
+      if(isDrawing)return;
+      if(pickingPointFor){onPathPointClick(e);return;}
+      L.popup().setLatLng(e.latlng).setContent(content).openOn(map);
+    });
   });
+  return geoLayer;
+}
+
+function deleteExistingSegment(uid){
+  const entry=_segReg[uid];
+  if(!entry)return;
+  if(!confirm('Delete this lane segment from the map?'))return;
+  map.closePopup();
+  entry.parent.removeLayer(entry.layer);
+  delete _segReg[uid];
 }
 
 // Completed (dark green) - on by default
