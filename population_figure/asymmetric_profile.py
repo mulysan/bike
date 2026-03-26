@@ -91,17 +91,19 @@ print(f"  Jewish total: {jewish_total:,.0f}   Arab total: {arab_total:,.0f}")
 # Right (positive x) = Arab,   reading outward from centre to right
 rw = RING_WIDTH / 1000
 
-def _side_spline(dens, sign, n=250):
+def _side_spline(dens, sign, n=500):
     """Build a spline for one side (+1=right, -1=left) with gradual taper to zero."""
     last_nz = max((i for i, d in enumerate(dens) if d > 0), default=0)
     zero_x  = min((last_nz + 3) * rw, 16)
-    xs = [(r + 0.5) * rw for r in range(last_nz + 1)] + [zero_x]
-    ys = list(dens[:last_nz + 1]) + [0]
-    xs = np.array(xs) * sign
+    xs = np.array([(r + 0.5) * rw for r in range(last_nz + 1)] + [zero_x]) * sign
+    ys = np.array(list(dens[:last_nz + 1]) + [0])
     if sign < 0:
         xs, ys = xs[::-1], ys[::-1]
-    pts = np.linspace(xs[0], xs[-1], n)
-    return pts, np.clip(make_interp_spline(xs, ys, k=3)(pts), 0, None)
+    x_full = np.linspace(-16 if sign < 0 else 0, 0 if sign < 0 else 16, n)
+    y_full = np.zeros(n)
+    _ins = (x_full >= xs[0]) & (x_full <= xs[-1])
+    y_full[_ins] = np.clip(make_interp_spline(xs, ys, k=3)(x_full[_ins]), 0, None)
+    return x_full, y_full
 
 x_sl, y_sl = _side_spline(jewish_dens, sign=-1)
 x_sr, y_sr = _side_spline(arab_dens,   sign=+1)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 spatial_maps.py
-Two choropleth maps of Jerusalem statistical areas:
+Two choropleth maps of Jerusalem TMP areas:
   Map 1 – Distance of each area's centroid from Kikar Zion (km)
   Map 2 – Population density per area (people per km², 2025)
 """
@@ -118,7 +118,7 @@ add_colorbar(fig1, ax1, SPECTRAL_CMAP, vmin_d, vmax_d, "Distance from Kikar Zion
 ax1.set_axis_off()
 fig1.text(0.5, 0.96, "Distance from City Centre",
           color=TEXT_COLOR, fontsize=16, fontweight="bold", ha="center", va="top")
-fig1.text(0.5, 0.91, "Centroid distance of each statistical area from Kikar Zion",
+fig1.text(0.5, 0.91, "Centroid distance of each TMP area from Kikar Zion",
           color="#AAAAAA", fontsize=10, ha="center", va="top")
 
 plt.tight_layout(rect=[0, 0, 1, 0.90])
@@ -170,7 +170,7 @@ plt.setp(cb2.ax.yaxis.get_ticklabels(), color=TEXT_COLOR, fontsize=8)
 cb2.outline.set_edgecolor("#444444")
 
 ax2.set_axis_off()
-fig2.text(0.5, 0.96, f"Population Density by Statistical Area ({POP_YEAR})",
+fig2.text(0.5, 0.96, f"Population Density by TMP Area ({POP_YEAR})",
           color=TEXT_COLOR, fontsize=16, fontweight="bold", ha="center", va="top")
 fig2.text(0.5, 0.91, "People per km² (log scale)  ·  Jerusalem areas only",
           color="#AAAAAA", fontsize=10, ha="center", va="top")
@@ -221,7 +221,7 @@ plt.setp(cb3.ax.yaxis.get_ticklabels(), color=TEXT_COLOR, fontsize=8)
 cb3.outline.set_edgecolor("#444444")
 
 ax3.set_axis_off()
-fig3.text(0.5, 0.96, f"Employment Density by Statistical Area ({POP_YEAR})",
+fig3.text(0.5, 0.96, f"Employment Density by TMP Area ({POP_YEAR})",
           color=TEXT_COLOR, fontsize=16, fontweight="bold", ha="center", va="top")
 fig3.text(0.5, 0.91, "Jobs per km² (log scale)  ·  Jerusalem areas only",
           color="#AAAAAA", fontsize=10, ha="center", va="top")

@@ -107,8 +107,10 @@ for cfg in YEARS:
     x   = np.array([-v for v in reversed(x_r)] + x_r)
     y   = np.array(list(reversed(y_r)) + y_r)
 
-    x_s = np.linspace(x[0], x[-1], 500)
-    y_s = np.clip(make_interp_spline(x, y, k=3)(x_s), 0, None)
+    x_s = np.linspace(-16, 16, 500)
+    y_s = np.zeros(len(x_s))
+    _ins = (x_s >= x[0]) & (x_s <= x[-1])
+    y_s[_ins] = np.clip(make_interp_spline(x, y, k=3)(x_s[_ins]), 0, None)
     y_max_global = max(y_max_global, y_s.max())
 
     ax.plot(x_s, y_s, color=color, linewidth=2.5, zorder=3)

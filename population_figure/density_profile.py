@@ -98,8 +98,10 @@ def make_figure(year):
     x   = np.array([-v for v in reversed(x_r)] + x_r)
     y   = np.array(list(reversed(y_r)) + y_r)
 
-    x_smooth = np.linspace(x[0], x[-1], 500)
-    y_smooth  = np.clip(make_interp_spline(x, y, k=3)(x_smooth), 0, None)
+    x_smooth = np.linspace(-16, 16, 500)
+    y_smooth  = np.zeros(len(x_smooth))
+    _ins = (x_smooth >= x[0]) & (x_smooth <= x[-1])
+    y_smooth[_ins] = np.clip(make_interp_spline(x, y, k=3)(x_smooth[_ins]), 0, None)
 
     fig, ax = plt.subplots(figsize=(14, 7), facecolor=BG_COLOR)
     ax.set_facecolor(BG_COLOR)
@@ -139,7 +141,7 @@ def make_figure(year):
 
     methodology = (
         "Methodology\n"
-        "Population measured in 2 km radial rings\n"
+        "Population measured in 1 km radial rings\n"
         "from Kikar Zion (city centre), showing\n"
         "average density (people per km²) within\n"
         "each ring, not cumulative totals.\n\n"

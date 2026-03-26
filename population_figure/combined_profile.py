@@ -16,7 +16,7 @@ import os
 
 HERE     = os.path.dirname(os.path.abspath(__file__))
 SHP_PATH = os.path.join(HERE, "..", "jer_areas.shp")
-OUT_PATH = os.path.join(HERE, "jerusalem_density_profile_2020_2040.png")
+OUT_PATH = os.path.join(HERE, "jerusalem_density_profile_2025_2040.png")
 
 KIKAR_ZION_LON = 35.2232
 KIKAR_ZION_LAT = 31.7785
@@ -29,7 +29,7 @@ GRID_COLOR = "#2a2a2a"
 TEXT_COLOR = "#FFFFFF"
 
 YEARS = [
-    {"year": 2020, "color": "#00CFCF", "label_offset": 1.06},  # cyan
+    {"year": 2025, "color": "#00CFCF", "label_offset": 1.06},  # cyan
     {"year": 2040, "color": "#FF6EC7", "label_offset": 1.06},  # hot pink
 ]
 
@@ -89,8 +89,10 @@ for cfg in YEARS:
     x   = np.array([-v for v in reversed(x_r)] + x_r)
     y   = np.array(list(reversed(y_r)) + y_r)
 
-    x_s = np.linspace(x[0], x[-1], 500)
-    y_s = np.clip(make_interp_spline(x, y, k=3)(x_s), 0, None)
+    x_s = np.linspace(-16, 16, 500)
+    y_s = np.zeros(len(x_s))
+    _ins = (x_s >= x[0]) & (x_s <= x[-1])
+    y_s[_ins] = np.clip(make_interp_spline(x, y, k=3)(x_s[_ins]), 0, None)
     y_max_global = max(y_max_global, y_s.max())
 
     ax.plot(x_s, y_s, color=color, linewidth=2.5, zorder=3, label=f"{year}")
@@ -124,14 +126,14 @@ for spine in ax.spines.values():
 ax.set_xlabel("Distance from centre (km)", color=TEXT_COLOR, fontsize=12, labelpad=10)
 ax.set_ylabel("Density (People per km²)",  color=TEXT_COLOR, fontsize=12, labelpad=10)
 
-fig.text(0.45, 0.97, "Jerusalem Density Profile – 2020 vs 2040",
+fig.text(0.45, 0.97, "Jerusalem Density Profile – 2025 vs 2040",
          color=TEXT_COLOR, fontsize=18, fontweight="bold", ha="center", va="top")
 fig.text(0.45, 0.91, "Radial Population Structure (0–16 km, 1 km bands)",
          color="#AAAAAA", fontsize=11, ha="center", va="top")
 
 note = (
     "Methodology\n"
-    "Population in 2 km radial rings from\n"
+    "Population in 1 km radial rings from\n"
     "Kikar Zion, average density per km².\n\n"
     "Source: jer_areas shapefile.\n"
     "Data available: 2020–2040.\n"
