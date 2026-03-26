@@ -51,11 +51,12 @@ for r in range(N_RINGS):
     inner = centre.buffer(r * RING_WIDTH) if r > 0 else None
     ring_geoms.append(outer if inner is None else outer.difference(inner))
 
-inter_fracs = [
-    areas.geometry.intersection(g).area / areas["area_m2"].replace(0, np.nan)
-    for g in ring_geoms
-]
-ring_areas_km2 = [g.area / 1e6 for g in ring_geoms]
+inter_fracs = []
+ring_footprint_km2 = []
+for g in ring_geoms:
+    inter_area = areas.geometry.intersection(g).area
+    inter_fracs.append(inter_area / areas["area_m2"].replace(0, np.nan))
+    ring_footprint_km2.append(inter_area.sum() / 1e6)
 
 inter_frac_16 = (
     areas.geometry.intersection(centre.buffer(MAX_DIST)).area
@@ -67,8 +68,10 @@ midpoints = np.array([(r + 0.5) * (RING_WIDTH / 1000) for r in range(N_RINGS)])
 
 def ring_densities(col):
     vals = areas[col].fillna(0)
-    dens = [(frac * vals).fillna(0).sum() / km2
-            for frac, km2 in zip(inter_fracs, ring_areas_km2)]
+    dens = [
+        (frac * vals).fillna(0).sum() / foot_km2 if foot_km2 > 0 else 0
+        for frac, foot_km2 in zip(inter_fracs, ring_footprint_km2)
+    ]
     total = (inter_frac_16 * vals).fillna(0).sum()
     return dens, total
 

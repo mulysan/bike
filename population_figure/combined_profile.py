@@ -51,10 +51,12 @@ for r in range(N_RINGS):
     inner = centre.buffer(r * RING_WIDTH) if r > 0 else None
     ring_geoms.append(outer if inner is None else outer.difference(inner))
 
-inter_frac_rings = [
-    areas.geometry.intersection(g).area / areas["area_m2"].replace(0, np.nan)
-    for g in ring_geoms
-]
+inter_frac_rings = []
+ring_footprint_km2 = []
+for g in ring_geoms:
+    inter_area = areas.geometry.intersection(g).area
+    inter_frac_rings.append(inter_area / areas["area_m2"].replace(0, np.nan))
+    ring_footprint_km2.append(inter_area.sum() / 1e6)
 inter_frac_16 = (
     areas.geometry.intersection(centre.buffer(MAX_DIST)).area
     / areas["area_m2"].replace(0, np.nan)
@@ -75,8 +77,8 @@ for cfg in YEARS:
     pop     = areas[pop_col].fillna(0)
 
     densities = [
-        (frac * pop).fillna(0).sum() / (g.area / 1e6)
-        for frac, g in zip(inter_frac_rings, ring_geoms)
+        (frac * pop).fillna(0).sum() / foot_km2 if foot_km2 > 0 else 0
+        for frac, foot_km2 in zip(inter_frac_rings, ring_footprint_km2)
     ]
     total_pop = (inter_frac_16 * pop).fillna(0).sum()
     pop_label = f"{total_pop / 1e6:.2f}m"

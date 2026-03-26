@@ -58,11 +58,13 @@ for r in range(N_RINGS):
     inner = CENTRE.buffer(r * RING_WIDTH) if r > 0 else None
     _ring_geoms.append(outer if inner is None else outer.difference(inner))
 
-_inter_frac_rings = []   # one array per ring
+_inter_frac_rings    = []   # one array per ring
+_ring_footprint_km2  = []   # TMP area footprint within each ring (density denominator)
 for ring_geom in _ring_geoms:
-    frac = (_areas_raw.geometry.intersection(ring_geom).area
-            / _areas_raw["area_m2"].replace(0, np.nan))
+    inter_area = _areas_raw.geometry.intersection(ring_geom).area
+    frac = inter_area / _areas_raw["area_m2"].replace(0, np.nan)
     _inter_frac_rings.append(frac)
+    _ring_footprint_km2.append(inter_area.sum() / 1e6)
 
 _inter_frac_16km = (_areas_raw.geometry.intersection(BUF16).area
                     / _areas_raw["area_m2"].replace(0, np.nan))
@@ -72,10 +74,9 @@ _inter_frac_16km = (_areas_raw.geometry.intersection(BUF16).area
 def compute_densities(pop_col):
     pop = _areas_raw[pop_col].fillna(0)
     densities = []
-    for r, (ring_geom, frac) in enumerate(zip(_ring_geoms, _inter_frac_rings)):
-        ring_area_km2 = ring_geom.area / 1e6
-        pop_in_ring   = (frac * pop).fillna(0).sum()
-        densities.append(pop_in_ring / ring_area_km2)
+    for r, (frac, foot_km2) in enumerate(zip(_inter_frac_rings, _ring_footprint_km2)):
+        pop_in_ring = (frac * pop).fillna(0).sum()
+        densities.append(pop_in_ring / foot_km2 if foot_km2 > 0 else 0)
     total_pop = (_inter_frac_16km * pop).fillna(0).sum()
     return densities, total_pop
 
