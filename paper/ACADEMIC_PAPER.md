@@ -31,7 +31,7 @@ Our primary contributions are:
 1. **Methodological innovation**: Adaptation of gravity-based accessibility models to bike lane prioritization with a tunable preference parameter
 2. **Empirical application**: Comprehensive analysis of 25 proposed lanes in Jerusalem using real population, employment, and network data
 3. **Sensitivity analysis**: Examination of how parameter choices affect rankings and identification of robustly high-impact investments
-4. **Practical tool**: Development of an interactive web-based platform enabling planners to explore scenarios and evaluate custom proposals
+4. **Practical tool**: Development of an interactive web-based platform enabling planners to explore scenarios, evaluate custom proposals, delete existing segments to model infrastructure unavailability, and inspect per-area accessibility changes
 
 The remainder of this paper is organized as follows. Section 2 reviews relevant literature on accessibility modeling and cycling infrastructure planning. Section 3 presents our methodology in detail. Section 4 describes the study area and data sources. Section 5 presents results including lane rankings, sensitivity analyses, and case studies. Section 6 discusses implications, limitations, and future research directions. Section 7 concludes.
 
@@ -186,6 +186,17 @@ To assess the value of existing or selected lanes, we measure the loss from remo
 
 Raw GIS data often contains topological errors that prevent valid routing. Our preprocessing pipeline addresses these issues:
 
+#### 3.5.0 Bike Lane Segment Merging
+
+Before constructing the road network, connected bike lane segments within the same layer are merged into single features using a spatial Union-Find algorithm. Segment endpoints within 20 meters of each other are linked into the same component; all segments in a component are then unioned into a single geometry using `shapely.ops.unary_union` followed by `linemerge`. This reduces data noise and simplifies the per-feature edge accounting used in online deletion. Merge results for Jerusalem:
+
+| Layer | Raw features | Merged features |
+|-------|-------------|-----------------|
+| Completed | 979 | 109 |
+| Under Construction | 131 | 48 |
+| Planned | 502 | 178 |
+| In Checking | 86 | 41 |
+
 #### 3.5.1 Node Merging
 
 Nodes within 15 meters are merged to handle GPS imprecision and ensure connectivity at apparent intersections.
@@ -253,9 +264,10 @@ Table 1 summarizes data sources used in this analysis.
 ### 4.3 Network Characteristics
 
 The processed network comprises:
-- **Nodes**: ~8,000
-- **Edges**: ~11,000
-- **Statistical Areas**: 98
+- **Nodes**: 9,628
+- **Edges**: 13,725
+- **Statistical Areas**: ~200
+- **Dedicated bike path virtual edges**: 1,095 (linking off-road bike lanes to the road graph)
 
 ### 4.4 Proposed Lanes (Wishing List)
 
@@ -509,7 +521,7 @@ Our methodology offers several advantages for transportation planning practice:
 
 **Stakeholder communication**: Percentage improvement metrics provide intuitive measures for communicating infrastructure value to decision-makers and the public.
 
-**Scenario evaluation**: The interactive tool enables rapid assessment of alternative proposals, including user-drawn custom lanes.
+**Scenario evaluation**: The interactive tool enables rapid assessment of alternative proposals, including user-drawn custom lanes and selective deletion of existing segments to model network degradation or maintenance closures.
 
 ### 6.3 Parameter Selection Guidance
 
@@ -564,7 +576,7 @@ This paper presents a gravity-based accessibility methodology for prioritizing u
 
 Application to Jerusalem's 25 proposed bike lanes reveals substantial variation in potential contributions, with the top-ranked lane (Derech Hebron) providing over 2% city-wide accessibility improvement. Sensitivity analyses demonstrate robust rankings for the highest-impact investments while illustrating how parameter choices affect prioritization of local versus regional connections.
 
-Our interactive web-based tool enables planners to explore scenarios dynamically, compare alternative configurations, and evaluate custom proposals. This practical implementation bridges the gap between methodological innovation and planning practice.
+Our interactive web-based tool enables planners to explore scenarios dynamically, compare alternative configurations, evaluate custom proposals, and delete individual existing segments to model network degradation scenarios. The Area Changes tab provides immediate per-area feedback after each computation, highlighting which statistical areas benefit most from infrastructure changes. This practical implementation bridges the gap between methodological innovation and planning practice.
 
 As cities worldwide seek to promote sustainable transportation, systematic approaches to infrastructure prioritization become increasingly valuable. The methodology presented here offers a replicable framework for maximizing the return on cycling investments while ensuring that limited resources target the connections with greatest potential to transform urban mobility.
 
@@ -635,11 +647,17 @@ All frontend calculations run client-side in modern web browsers without server 
 
 | Metric | Value |
 |--------|-------|
-| Total nodes | 8,247 |
-| Total edges | 11,438 |
-| Statistical areas | 98 |
+| Total nodes | 9,628 |
+| Total edges | 13,725 |
+| Statistical areas | ~200 |
+| Dedicated bike path virtual edges | 1,095 |
 | Node merge tolerance | 15 meters |
+| Segment snap distance (lane merging) | 20 meters |
 | Gap connection threshold | 50 meters |
+| Completed lane features (merged) | 109 |
+| Under-construction features (merged) | 48 |
+| Planned features (merged) | 178 |
+| In-checking features (merged) | 41 |
 
 ---
 
