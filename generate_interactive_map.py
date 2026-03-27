@@ -584,7 +584,7 @@ def main():
         gdf['feat_id'] = range(len(gdf))
         return geojson_from_gdf(gdf[['geometry', 'Name', 'feat_id']], ['Name', 'feat_id'])
 
-    def merge_layer_spatially(gdf, snap_dist=10):
+    def merge_layer_spatially(gdf, snap_dist=20):
         """Merge line segments whose endpoints are within snap_dist metres into one feature."""
         from shapely.ops import linemerge, unary_union
         from shapely.geometry import Point
@@ -674,7 +674,7 @@ def main():
         result = result[result['geometry'].notna() & ~result['geometry'].is_empty].reset_index(drop=True)
         return result
 
-    print("  Merging connected segments per layer (snap=10m)...")
+    print("  Merging connected segments per layer (snap=20m)...")
     completed_m   = merge_layer_spatially(completed[['geometry', 'Name']])
     construction_m = merge_layer_spatially(construction[['geometry', 'Name']])
     plan_m        = merge_layer_spatially(plan[['geometry', 'Name']])
@@ -1181,7 +1181,7 @@ button:hover{{background:#2980b9}}
 #map{{width:100%;height:100%}}
 .sidebar{{width:380px;background:#ecf0f1;overflow-y:auto;padding:12px;font-size:.9em}}
 .sidebar h3{{margin:0 0 8px;color:#2c3e50;border-bottom:2px solid #3498db;padding-bottom:4px}}
-.tabs{{display:flex;gap:6px;margin-bottom:10px}}
+.tabs{{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px}}
 .tabs button{{flex:1;padding:8px;text-align:center}}
 .tabs button.act{{background:#27ae60}}
 .tc{{display:none}}.tc.act{{display:block}}
@@ -1318,6 +1318,7 @@ button:hover{{background:#2980b9}}
       <button onclick="showTab('draw',this)">Draw Lane</button>
       <button onclick="showTab('paths',this)">Find Path</button>
       <button onclick="showTab('compute',this)">Compute Accessibility</button>
+      <button onclick="showTab('areas',this)">Area Changes</button>
       <button onclick="showTab('rank',this)">Rank Lanes</button>
     </div>
     <div id="lanes" class="tc act">
@@ -1372,7 +1373,10 @@ button:hover{{background:#2980b9}}
         <label>Destination area:</label>
         <input type="text" id="destInput" list="areaList" placeholder="Search area..." style="width:100%;padding:6px;margin-bottom:8px;border:1px solid #ddd;border-radius:4px">
         <datalist id="areaList"></datalist>
-        <button onclick="showPath()">Show path</button>
+        <div style="display:flex;gap:8px">
+          <button onclick="showPath()">Show path</button>
+          <button onclick="clearPath()" style="background:#f5f5f5;color:#333">Clear path</button>
+        </div>
       </div>
       <div id="pointPathMode" style="display:none" class="path-ctl">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
@@ -1388,9 +1392,17 @@ button:hover{{background:#2980b9}}
           <button onclick="clearPathPoint('dest')" style="padding:4px 8px;background:#f5f5f5">X</button>
         </div>
         <div id="pickingStatus" style="font-size:.85em;color:#e91e63;margin-bottom:8px"></div>
-        <button onclick="showPath()">Show path</button>
+        <div style="display:flex;gap:8px">
+          <button onclick="showPath()">Show path</button>
+          <button onclick="clearPath()" style="background:#f5f5f5;color:#333">Clear path</button>
+        </div>
       </div>
       <div id="pathInfo"></div>
+    </div>
+    <div id="areas" class="tc">
+      <h3>Area Changes</h3>
+      <div class="note">Top 20 areas by accessibility improvement after computing. Run Compute Accessibility first.</div>
+      <div id="areaChangesList" style="margin-top:10px"></div>
     </div>
     <div id="rank" class="tc">
       <h3>Rank Lanes</h3>
@@ -2136,6 +2148,15 @@ function clearPathPoint(which){{
   }}
 }}
 
+function clearPath(){{
+  clearPathPoint('origin');
+  clearPathPoint('dest');
+  document.getElementById('origInput').value='';
+  document.getElementById('destInput').value='';
+  if(pathLyrGroup){{map.removeLayer(pathLyrGroup);pathLyrGroup=null;}}
+  document.getElementById('pathInfo').innerHTML='';
+}}
+
 function showPath(){{
   const mode=document.querySelector('input[name="pathMode"]:checked').value;
 
@@ -2452,6 +2473,7 @@ function computeAccessibility(){{
           '<p style="font-size:.85em;margin-top:8px">Switch to "Change (%)" mode to see per-area improvements.</p>'+
           '</div>';
         updateAreaColors();
+        updateAreaChangesTab();
         return;
       }}
 
@@ -3678,6 +3700,7 @@ computeAccessibility=function(){{
           '<p style="font-size:.85em;margin-top:8px">Switch to "Change (%)" mode to see per-area improvements.</p>'+
           '</div>';
         updateAreaColors();
+        updateAreaChangesTab();
 
         if(userCount>0){{
           document.getElementById('userLaneImpact').innerHTML=
@@ -3736,6 +3759,36 @@ computeAccessibility=function(){{
     processArea(0);
   }},50);
 }};
+
+function updateAreaChangesTab(){{
+  const el=document.getElementById('areaChangesList');
+  if(!el)return;
+  if(!computedAcc||!baselineAcc){{
+    el.innerHTML='<p style="color:#888">No computed data yet. Run Compute Accessibility first.</p>';
+    return;
+  }}
+  const n=AREA_IDS.length;
+  const changes=[];
+  for(let i=0;i<n;i++){{
+    const base=baselineAcc.orig[i]||0;
+    const comp=computedAcc.orig[i]||0;
+    const pct=base>0?100*(comp-base)/base:0;
+    changes.push({{id:AREA_IDS[i],name:AREA_NAMES[i],base:base,comp:comp,pct:pct}});
+  }}
+  changes.sort((a,b)=>b.pct-a.pct);
+  const top=changes.slice(0,20);
+  let html='<table style="width:100%;border-collapse:collapse;font-size:.85em">';
+  html+='<tr style="background:#f0f0f0"><th style="text-align:left;padding:4px">Area</th><th style="text-align:right;padding:4px">Change</th></tr>';
+  for(const r of top){{
+    const color=r.pct>=0?'#27ae60':'#e74c3c';
+    html+='<tr style="border-bottom:1px solid #eee">';
+    html+='<td style="padding:4px">'+r.name+'</td>';
+    html+='<td style="text-align:right;padding:4px;color:'+color+';font-weight:bold">'+(r.pct>=0?'+':'')+r.pct.toFixed(2)+'%</td>';
+    html+='</tr>';
+  }}
+  html+='</table>';
+  el.innerHTML=html;
+}}
 
 // Initial render
 buildLaneList();
