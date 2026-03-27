@@ -604,6 +604,17 @@ def main():
             return gdf.copy()
         gdf = gdf.copy().reset_index(drop=True)
         gdf['Name'] = gdf['Name'].fillna('').astype(str)
+        # Drop Z coordinates before projecting to avoid NaN issues with 3D KML data
+        from shapely.ops import transform as shp_transform
+        def drop_z(g):
+            if g is None or g.is_empty:
+                return g
+            return shp_transform(lambda x, y, z=None: (x, y), g)
+        gdf['geometry'] = gdf['geometry'].apply(drop_z)
+        # Drop empty/null geometries
+        gdf = gdf[gdf['geometry'].notna() & ~gdf['geometry'].is_empty].reset_index(drop=True)
+        if len(gdf) == 0:
+            return gdf[['geometry', 'Name']]
         gdf_proj = gdf.to_crs(TARGET_CRS)
         n = len(gdf_proj)
 
@@ -655,10 +666,13 @@ def main():
             merged_geoms.append(merged)
             merged_names.append(names[0] if names else '')
 
-        return gpd.GeoDataFrame(
+        result = gpd.GeoDataFrame(
             {'geometry': merged_geoms, 'Name': merged_names},
             crs=gdf_proj.crs
         ).reset_index(drop=True)
+        # Drop any degenerate geometries produced by the merge
+        result = result[result['geometry'].notna() & ~result['geometry'].is_empty].reset_index(drop=True)
+        return result
 
     print("  Merging connected segments per layer (snap=10m)...")
     completed_m   = merge_layer_spatially(completed[['geometry', 'Name']])
