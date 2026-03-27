@@ -10,7 +10,7 @@
 
 ## Abstract
 
-Urban cycling infrastructure plays a critical role in sustainable transportation systems, yet municipal planners often face resource constraints that necessitate strategic prioritization of bike lane investments. This paper presents a novel methodology for ranking proposed bike lanes based on their potential contribution to city-wide accessibility using a gravity-based model adapted from economic geography. We apply this framework to Jerusalem, Israel, evaluating 25 proposed "wishing list" bike lanes against existing infrastructure. Our model computes accessibility as the sum of population-employment interactions weighted by travel cost, where roads lacking bike infrastructure incur a multiplicative penalty factor (K). Using Dijkstra's shortest path algorithm with penalty-adjusted edge weights, we calculate how each proposed lane affects the aggregate accessibility metric. Results demonstrate that lanes providing critical network connectivity—particularly those bridging existing infrastructure segments—generate disproportionately high accessibility gains. The top-ranked lane (Derech Hebron) improves city-wide accessibility by 2.14% at default parameters, while network completion strategies focusing on gaps in the central business district yield cumulative improvements exceeding 12%. Sensitivity analyses across K values (2-1000) and distance decay parameters (θ = -0.5 to -3.0) reveal robust rankings for high-impact lanes while demonstrating how parameter choices affect the prioritization of local versus regional connections. Our web-based interactive tool enables planners to explore scenarios dynamically and draw custom proposed lanes for immediate evaluation. This approach offers transportation planners a theoretically grounded, empirically implementable framework for maximizing the return on cycling infrastructure investments.
+Urban cycling infrastructure plays a critical role in sustainable transportation systems, yet municipal planners often face resource constraints that necessitate strategic prioritization of bike lane investments. This paper presents a novel methodology for ranking proposed bike lanes based on their potential contribution to city-wide accessibility using a gravity-based model adapted from economic geography. We apply this framework to Jerusalem, Israel, evaluating 25 proposed "wish list" bike lanes against existing infrastructure. Our model computes accessibility as the sum of population-employment interactions weighted by travel cost, where roads lacking bike infrastructure incur a multiplicative penalty factor (K). Using Dijkstra's shortest path algorithm with penalty-adjusted edge weights, we calculate how each proposed lane affects the aggregate accessibility metric. Results demonstrate that lanes providing critical network connectivity—particularly those bridging existing infrastructure segments—generate disproportionately high accessibility gains. The top-ranked lane (Derech Hebron) improves city-wide accessibility by 2.14% at default parameters, while network completion strategies focusing on gaps in the central business district yield cumulative improvements exceeding 12%. Sensitivity analyses across K values (2-1000) and distance decay parameters (θ = -0.5 to -3.0) reveal robust rankings for high-impact lanes while demonstrating how parameter choices affect the prioritization of local versus regional connections. Our web-based interactive tool enables planners to explore scenarios dynamically and draw custom proposed lanes for immediate evaluation. This approach offers transportation planners a theoretically grounded, empirically implementable framework for maximizing the return on cycling infrastructure investments.
 
 **Keywords:** Bicycle infrastructure planning, Accessibility modeling, Gravity model, Network analysis, Sustainable transportation, Jerusalem, GIS
 
@@ -258,7 +258,7 @@ Table 1 summarizes data sources used in this analysis.
 | Employment | Jerusalem Transportation Master Plan Team | Jobs per statistical area, 2020-2040 projections |
 | Completed Bike Lanes | Jerusalem Transportation Master Plan Team | Existing operational infrastructure (3.1 MB) |
 | Under Construction | Jerusalem Transportation Master Plan Team | Lanes currently being built (461 KB) |
-| Wishing List Lanes | Author | 25 proposed future lanes (20 KB) |
+| Wish List Lanes | Author | 25 proposed future lanes (20 KB) |
 | Road Network | OpenStreetMap | Complete road network filtered to Jerusalem + 1km buffer (9.7 MB) |
 
 ### 4.3 Network Characteristics
@@ -269,11 +269,11 @@ The processed network comprises:
 - **Statistical Areas**: ~200
 - **Dedicated bike path virtual edges**: 1,095 (linking off-road bike lanes to the road graph)
 
-### 4.4 Proposed Lanes (Wishing List)
+### 4.4 Proposed Lanes (Wish List)
 
 Table 2 presents the 25 proposed bike lanes evaluated in this study.
 
-**Table 2: Wishing List Bike Lanes**
+**Table 2: Wish List Bike Lanes**
 
 | ID | Lane Name | Location Description | Length (m) |
 |----|-----------|---------------------|------------|

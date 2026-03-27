@@ -689,7 +689,7 @@ def main():
     plan_geojson         = make_layer_geojson(plan_m)
     check_geojson        = make_layer_geojson(check_m)
 
-    # Wishing list - use integer lane_id for identification
+    # Wish list - use integer lane_id for identification
     wishing['lane_id'] = range(len(wishing))
     wishing_geojson = geojson_from_gdf(wishing[['geometry', 'Name', 'lane_id']], ['Name', 'lane_id'])
     lane_names = [wishing.iloc[i]['Name'] for i in range(len(wishing))]
@@ -1290,9 +1290,9 @@ button:hover{{background:#2980b9}}
       <div class="legend-item"><label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="lyrConstruction" checked onchange="toggleLayer('construction')"><div class="legend-line" style="background:#81C784"></div>Under construction</label></div>
       <div class="legend-item"><label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="lyrPlan" onchange="toggleLayer('plan')"><div class="legend-line" style="background:#2196F3"></div>In planning</label></div>
       <div class="legend-item"><label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="lyrCheck" onchange="toggleLayer('check')"><div class="legend-line" style="background:#00BCD4"></div>In checking</label></div>
-      <div class="legend-item"><label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="lyrWishing" onchange="toggleLayer('wishing')"><div class="legend-line" style="background:#FF9800"></div>Wishing list</label></div>
+      <div class="legend-item"><label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="lyrWishing" onchange="toggleLayer('wishing')"><div class="legend-line" style="background:#FF9800"></div>Wish list</label></div>
       <hr style="margin:6px 0;border:none;border-top:1px solid #ccc">
-      <div class="legend-item"><div class="legend-line" style="background:#9b59b6;height:6px"></div>Selected wishing lane</div>
+      <div class="legend-item"><div class="legend-line" style="background:#9b59b6;height:6px"></div>Selected wish list lane</div>
       <div class="legend-item"><div class="legend-line" style="background:#E91E63;height:6px"></div>User-drawn lane</div>
       <div class="legend-item"><div class="legend-line" style="background:#1565C0;height:6px"></div>Path on bike lane</div>
       <div class="legend-item"><div class="legend-line" style="background:#E65100;height:6px"></div>Path on road</div>
@@ -1322,7 +1322,7 @@ button:hover{{background:#2980b9}}
       <button onclick="showTab('rank',this)">Rank Lanes</button>
     </div>
     <div id="lanes" class="tc act">
-      <h3>Select Wishing Lanes</h3>
+      <h3>Select Wish List Lanes</h3>
       <div class="note">Click lanes to select them for the network. Selected lanes affect path finding and accessibility calculations.</div>
       <input type="text" id="laneSearch" placeholder="Search lanes..." style="width:100%;padding:8px;margin:8px 0;border:1px solid #ddd;border-radius:4px;box-sizing:border-box" oninput="filterLanes()">
       <div style="margin:8px 0;display:flex;gap:8px">
@@ -1841,7 +1841,7 @@ if(CHECK.features.length){{
   checkLyr=makeLaneLayer(CHECK,"#00BCD4","In checking","check");
 }}
 
-// Wishing list (orange, purple when selected)
+// Wish list (orange, purple when selected)
 wishLyr=L.geoJSON(WISHING,{{
   style:f=>{{
     const s=sel.has(f.properties.lane_id);
@@ -1935,6 +1935,13 @@ function filterLanes(){{
 
 function toggleLane(id){{
   sel.has(id)?sel.delete(id):sel.add(id);
+  // If user selected a lane but the wish list layer is hidden, show it
+  if(sel.has(id)&&!map.hasLayer(wishLyr)){{
+    wishLyr.addTo(map);
+    activeLayers.wishing=true;
+    const cb=document.getElementById('lyrWishing');
+    if(cb)cb.checked=true;
+  }}
   refresh();
 }}
 
@@ -2428,7 +2435,7 @@ function computeAccessibility(){{
     computeBaseline();
   }}
 
-  prog.innerHTML="<p>Building network with active layers + "+sel.size+" wishing lanes...</p>";
+  prog.innerHTML="<p>Building network with active layers + "+sel.size+" wish list lanes...</p>";
 
   setTimeout(()=>{{
     // Build combined edge set: active layers + wishing
@@ -2464,7 +2471,7 @@ function computeAccessibility(){{
         prog.innerHTML="<p style='color:#27ae60'>Computation complete!</p>";
         results.innerHTML=
           '<div class="path-stats">'+
-          '<p><b>Results (K='+k+', &theta;='+theta+', Year='+currentYear+', '+sel.size+' wishing lanes):</b></p>'+
+          '<p><b>Results (K='+k+', &theta;='+theta+', Year='+currentYear+', '+sel.size+' wish list lanes):</b></p>'+
           '<table>'+
           '<tr><td>Baseline N:</td><td>'+baselineN.toExponential(3)+'</td></tr>'+
           '<tr><td>With selected lanes:</td><td>'+totalN.toExponential(3)+'</td></tr>'+
@@ -3691,7 +3698,7 @@ computeAccessibility=function(){{
         results.innerHTML=
           '<div class="path-stats">'+
           '<p><b>Results (K='+k+', &theta;='+theta+', Year='+currentYear+'):</b></p>'+
-          '<p style="font-size:.85em">'+sel.size+' wishing lanes + '+userCount+' custom lanes</p>'+
+          '<p style="font-size:.85em">'+sel.size+' wish list lanes + '+userCount+' custom lanes</p>'+
           '<table>'+
           '<tr><td>Baseline N:</td><td>'+baselineN.toExponential(3)+'</td></tr>'+
           '<tr><td>With selected lanes:</td><td>'+totalN.toExponential(3)+'</td></tr>'+
@@ -3708,7 +3715,7 @@ computeAccessibility=function(){{
             '<h4>Impact of Custom Lanes</h4>'+
             '<p>Your '+userCount+' custom lane(s) '+
             (improvementPct>=0?'improve':'reduce')+' accessibility by <b>'+(improvementPct>=0?'+':'')+improvementPct.toFixed(3)+'%</b></p>'+
-            '<p style="font-size:.85em;color:#666">(Combined with '+sel.size+' selected wishing lanes)</p>'+
+            '<p style="font-size:.85em;color:#666">(Combined with '+sel.size+' selected wish list lanes)</p>'+
             '</div>';
         }}else{{
           document.getElementById('userLaneImpact').innerHTML='';
@@ -3804,7 +3811,7 @@ updateComputePanel();
     <h1 style="color:#2c3e50;margin-top:0">Jerusalem Bike Lane Analysis - Methodology</h1>
 
     <h2 style="color:#34495e">Overview</h2>
-    <p>This tool ranks proposed ("wishing list") bike lanes by their potential contribution to city-wide accessibility. It uses a gravity-based accessibility model to measure how well people can reach jobs across the city, with bike lanes significantly reducing the effective travel cost.</p>
+    <p>This tool ranks proposed ("wish list") bike lanes by their potential contribution to city-wide accessibility. It uses a gravity-based accessibility model to measure how well people can reach jobs across the city, with bike lanes significantly reducing the effective travel cost.</p>
     <p>The tool also allows interactive editing of the existing network: individual lane segments (completed, under construction, planned, or checked) can be deleted to simulate scenarios where certain infrastructure is unavailable. After computing accessibility, the <b>Area Changes</b> tab shows which statistical areas benefit most.</p>
 
     <h2 style="color:#34495e">The Accessibility Model</h2>
@@ -3855,7 +3862,7 @@ updateComputePanel();
       <tr><td style="padding:8px;border:1px solid #ddd">Under Construction Bike Lanes</td><td style="padding:8px;border:1px solid #ddd">Jerusalem Transportation Master Plan Team</td></tr>
       <tr style="background:#f9f9f9"><td style="padding:8px;border:1px solid #ddd">Planned Bike Lanes</td><td style="padding:8px;border:1px solid #ddd">Jerusalem Transportation Master Plan Team</td></tr>
       <tr><td style="padding:8px;border:1px solid #ddd">Checked Bike Lanes</td><td style="padding:8px;border:1px solid #ddd">Jerusalem Transportation Master Plan Team</td></tr>
-      <tr style="background:#f9f9f9"><td style="padding:8px;border:1px solid #ddd">Wishing List Bike Lanes</td><td style="padding:8px;border:1px solid #ddd">The author</td></tr>
+      <tr style="background:#f9f9f9"><td style="padding:8px;border:1px solid #ddd">Wish List Bike Lanes</td><td style="padding:8px;border:1px solid #ddd">The author</td></tr>
       <tr><td style="padding:8px;border:1px solid #ddd">Road Network</td><td style="padding:8px;border:1px solid #ddd">OpenStreetMap</td></tr>
     </table>
 
@@ -3915,7 +3922,7 @@ updateComputePanel();
     <p>All accessibility calculations are performed in the browser using JavaScript:</p>
     <ol>
       <li><b>Baseline Computation</b>: When K or &theta; changes, compute accessibility with the active existing-lane layers only (deleted segments are excluded)</li>
-      <li><b>Network Update</b>: When wishing lanes are selected, mark their corresponding road edges as bike lanes (weight = length instead of length &times; K)</li>
+      <li><b>Network Update</b>: When wish list lanes are selected, mark their corresponding road edges as bike lanes (weight = length instead of length &times; K)</li>
       <li><b>Full Recomputation</b>: Run Dijkstra from each of the ~200 area centroids to compute new &tau;<sub>ij</sub> matrix</li>
       <li><b>Accessibility Aggregation</b>: Sum P<sub>i</sub> &times; E<sub>j</sub> &times; &tau;<sub>ij</sub><sup>&theta;</sup> for all pairs</li>
       <li><b>Area Changes</b>: The Area Changes tab shows the top 20 statistical areas by percentage improvement in origin accessibility after computation</li>
@@ -3926,7 +3933,7 @@ updateComputePanel();
     <h2 style="color:#34495e">How Lanes Are Ranked</h2>
     <ol>
       <li><b>Baseline Calculation</b>: Compute total N using existing bike lanes only</li>
-      <li><b>With Selected Lanes</b>: Add selected wishing lanes and recompute N</li>
+      <li><b>With Selected Lanes</b>: Add selected wish list lanes and recompute N</li>
       <li><b>Improvement</b>: %&Delta; = 100 &times; (N<sub>new</sub> - N<sub>baseline</sub>) / N<sub>baseline</sub></li>
     </ol>
 
