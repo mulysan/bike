@@ -4,12 +4,12 @@ An interactive web tool for prioritizing proposed bike lane investments in Jerus
 
 ## Overview
 
-The tool evaluates proposed ("wishing list") bike lanes by measuring their contribution to city-wide accessibility — the potential for residents to reach jobs via cycling. A single self-contained HTML file (~5.5 MB) runs entirely in the browser with no server required.
+The tool evaluates proposed ("wish list") bike lanes by measuring their contribution to city-wide accessibility — the potential for residents to reach jobs via cycling. A single self-contained HTML file (~5.5 MB) runs entirely in the browser with no server required.
 
 ## Features
 
 ### Select & Evaluate Lanes
-- Toggle proposed (wishing list) bike lanes on/off
+- Toggle proposed (wish list) bike lanes on/off
 - Compute accessibility improvement for any combination of lanes
 - Rank all lanes by marginal contribution (additive or subtractive mode)
 
@@ -93,7 +93,7 @@ Bike lane segments within the same layer whose endpoints are within 20 m of each
 | Statistical areas, population, employment | Jerusalem Transportation Master Plan Team |
 | Completed / construction / planned / checked bike lanes | Jerusalem Transportation Master Plan Team |
 | Road network | OpenStreetMap |
-| Wishing list lanes | Author |
+| Wish list lanes | Author |
 
 ## Project Structure
 
