@@ -3767,13 +3767,13 @@ function updateAreaChangesTab(){{
     el.innerHTML='<p style="color:#888">No computed data yet. Run Compute Accessibility first.</p>';
     return;
   }}
-  const n=AREA_IDS.length;
+  const n=AREA_NODES.length;
   const changes=[];
   for(let i=0;i<n;i++){{
     const base=baselineAcc.orig[i]||0;
     const comp=computedAcc.orig[i]||0;
     const pct=base>0?100*(comp-base)/base:0;
-    changes.push({{id:AREA_IDS[i],name:AREA_NAMES[i],base:base,comp:comp,pct:pct}});
+    changes.push({{id:AREA_NODES[i],name:AREA_NAMES[i],base:base,comp:comp,pct:pct}});
   }}
   changes.sort((a,b)=>b.pct-a.pct);
   const top=changes.slice(0,20);
