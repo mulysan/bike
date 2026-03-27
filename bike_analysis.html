@@ -186,6 +186,7 @@ button:hover{background:#2980b9}
       <button onclick="showTab('draw',this)">Draw Lane</button>
       <button onclick="showTab('paths',this)">Find Path</button>
       <button onclick="showTab('compute',this)">Compute Accessibility</button>
+      <button onclick="showTab('areas',this)">Area Changes</button>
       <button onclick="showTab('rank',this)">Rank Lanes</button>
     </div>
     <div id="lanes" class="tc act">
@@ -241,6 +242,7 @@ button:hover{background:#2980b9}
         <input type="text" id="destInput" list="areaList" placeholder="Search area..." style="width:100%;padding:6px;margin-bottom:8px;border:1px solid #ddd;border-radius:4px">
         <datalist id="areaList"></datalist>
         <button onclick="showPath()">Show path</button>
+        <button onclick="clearPath()" style="background:#e74c3c;margin-left:6px">Clear path</button>
       </div>
       <div id="pointPathMode" style="display:none" class="path-ctl">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
@@ -257,8 +259,14 @@ button:hover{background:#2980b9}
         </div>
         <div id="pickingStatus" style="font-size:.85em;color:#e91e63;margin-bottom:8px"></div>
         <button onclick="showPath()">Show path</button>
+        <button onclick="clearPath()" style="background:#e74c3c;margin-left:6px">Clear path</button>
       </div>
       <div id="pathInfo"></div>
+    </div>
+    <div id="areas" class="tc">
+      <h3>Top Area Changes</h3>
+      <div class="note">Top 20 areas by accessibility improvement after computing. Run "Compute Accessibility" first.</div>
+      <div id="areaChangesList"><p style="color:#888;font-size:.9em">No results yet — click Compute Accessibility first.</p></div>
     </div>
     <div id="rank" class="tc">
       <h3>Rank Lanes</h3>
@@ -1004,6 +1012,55 @@ function clearPathPoint(which){
   }
 }
 
+function clearPath(){
+  if(pathLyrGroup){map.removeLayer(pathLyrGroup);pathLyrGroup=null;}
+  document.getElementById('pathInfo').innerHTML='';
+  document.getElementById('origInput').value='';
+  document.getElementById('destInput').value='';
+  clearPathPoint('origin');
+  clearPathPoint('dest');
+  if(pickingPointFor){
+    map.off('click',onPathPointClick);
+    map.getContainer().style.cursor='';
+    document.getElementById('pickingStatus').innerHTML='';
+    pickingPointFor=null;
+  }
+}
+
+function updateAreaChangesTab(){
+  const container=document.getElementById('areaChangesList');
+  if(!container)return;
+  if(!baselineAcc||!computedAcc||
+     baselineK!==currentK||baselineTheta!==currentTheta||baselineYear!==currentYear||
+     computedK!==currentK||computedTheta!==currentTheta||computedYear!==currentYear){
+    container.innerHTML='<p style="color:#888;font-size:.9em">No results yet — click Compute Accessibility first.</p>';
+    return;
+  }
+  const mode=getAccMode();
+  const base=(mode==='dest')?baselineAcc.dest:baselineAcc.orig;
+  const comp=(mode==='dest')?computedAcc.dest:computedAcc.orig;
+  const changes=AREA_NAMES.map((name,i)=>{
+    const b=base[i]||0,c=comp[i]||0;
+    const pct=b>0?100*(c-b)/b:0;
+    return {name,pct};
+  });
+  changes.sort((a,b)=>b.pct-a.pct);
+  const top20=changes.slice(0,20);
+  let html='<table style="width:100%;font-size:.82em;border-collapse:collapse">';
+  html+='<tr style="background:#f0f0f0"><th style="text-align:left;padding:4px 6px">#</th><th style="text-align:left;padding:4px 6px">Area</th><th style="padding:4px 6px">Change</th></tr>';
+  top20.forEach((row,idx)=>{
+    const color=row.pct>0?'#27ae60':row.pct<0?'#e74c3c':'#666';
+    const sign=row.pct>=0?'+':'';
+    html+='<tr style="border-top:1px solid #eee">'+
+      '<td style="padding:4px 6px;color:#888">'+(idx+1)+'</td>'+
+      '<td style="padding:4px 6px">'+row.name+'</td>'+
+      '<td style="padding:4px 6px;text-align:right;font-weight:bold;color:'+color+'">'+sign+row.pct.toFixed(2)+'%</td>'+
+      '</tr>';
+  });
+  html+='</table>';
+  container.innerHTML=html;
+}
+
 function showPath(){
   const mode=document.querySelector('input[name="pathMode"]:checked').value;
 
@@ -1320,6 +1377,7 @@ function computeAccessibility(){
           '<p style="font-size:.85em;margin-top:8px">Switch to "Change (%)" mode to see per-area improvements.</p>'+
           '</div>';
         updateAreaColors();
+        updateAreaChangesTab();
         return;
       }
 
@@ -2546,6 +2604,7 @@ computeAccessibility=function(){
           '<p style="font-size:.85em;margin-top:8px">Switch to "Change (%)" mode to see per-area improvements.</p>'+
           '</div>';
         updateAreaColors();
+        updateAreaChangesTab();
 
         if(userCount>0){
           document.getElementById('userLaneImpact').innerHTML=
