@@ -584,10 +584,96 @@ def main():
         gdf['feat_id'] = range(len(gdf))
         return geojson_from_gdf(gdf[['geometry', 'Name', 'feat_id']], ['Name', 'feat_id'])
 
-    completed_geojson = make_layer_geojson(completed[['geometry', 'Name']])
-    construction_geojson = make_layer_geojson(construction[['geometry', 'Name']])
-    plan_geojson = make_layer_geojson(plan[['geometry', 'Name']])
-    check_geojson = make_layer_geojson(check[['geometry', 'Name']])
+    def merge_layer_spatially(gdf, snap_dist=10):
+        """Merge line segments whose endpoints are within snap_dist metres into one feature."""
+        from shapely.ops import linemerge, unary_union
+        from shapely.geometry import Point
+        from shapely.strtree import STRtree
+        from collections import defaultdict
+
+        def _ls(geom):
+            if geom is None or geom.is_empty:
+                return []
+            if geom.geom_type == 'LineString':
+                return [geom]
+            if geom.geom_type == 'MultiLineString':
+                return list(geom.geoms)
+            return []
+
+        if gdf is None or len(gdf) == 0:
+            return gdf.copy()
+        gdf = gdf.copy().reset_index(drop=True)
+        gdf['Name'] = gdf['Name'].fillna('').astype(str)
+        gdf_proj = gdf.to_crs(TARGET_CRS)
+        n = len(gdf_proj)
+
+        # Collect endpoints (2D) for every linestring in each feature
+        feat_ep = []  # (feat_idx, (x, y))
+        for i, row in gdf_proj.iterrows():
+            for ls in _ls(row.geometry):
+                pts = list(ls.coords)
+                if pts:
+                    feat_ep.append((i, (pts[0][0],  pts[0][1])))
+                    feat_ep.append((i, (pts[-1][0], pts[-1][1])))
+
+        # Spatial index over endpoints
+        ep_pts = [Point(xy) for _, xy in feat_ep]
+        ep_tree = STRtree(ep_pts)
+
+        # Union-Find
+        parent = list(range(n))
+        def find(x):
+            while parent[x] != x:
+                parent[x] = parent[parent[x]]
+                x = parent[x]
+            return x
+        def union(x, y):
+            px, py = find(x), find(y)
+            if px != py:
+                parent[px] = py
+
+        for fi, (x, y) in feat_ep:
+            for idx in ep_tree.query(Point(x, y).buffer(snap_dist)):
+                fj = feat_ep[idx][0]
+                if fi != fj:
+                    union(fi, fj)
+
+        # Group and merge
+        components = defaultdict(list)
+        for i in range(n):
+            components[find(i)].append(i)
+
+        merged_geoms, merged_names = [], []
+        for indices in components.values():
+            geoms = [gdf_proj.iloc[i].geometry for i in indices]
+            names = [gdf.iloc[i]['Name'] for i in indices if gdf.iloc[i]['Name'].strip()]
+            merged = unary_union(geoms)
+            try:
+                merged = linemerge(merged)
+            except Exception:
+                pass
+            merged_geoms.append(merged)
+            merged_names.append(names[0] if names else '')
+
+        return gpd.GeoDataFrame(
+            {'geometry': merged_geoms, 'Name': merged_names},
+            crs=gdf_proj.crs
+        ).reset_index(drop=True)
+
+    print("  Merging connected segments per layer (snap=10m)...")
+    completed_m   = merge_layer_spatially(completed[['geometry', 'Name']])
+    construction_m = merge_layer_spatially(construction[['geometry', 'Name']])
+    plan_m        = merge_layer_spatially(plan[['geometry', 'Name']])
+    check_m       = merge_layer_spatially(check[['geometry', 'Name']])
+    print(f"  Completed {len(completed)}→{len(completed_m)}, "
+          f"Construction {len(construction)}→{len(construction_m)}, "
+          f"Plan {len(plan)}→{len(plan_m)}, "
+          f"Check {len(check)}→{len(check_m)}")
+
+    completed_geojson    = make_layer_geojson(completed_m)
+    construction_geojson = make_layer_geojson(construction_m)
+    plan_geojson         = make_layer_geojson(plan_m)
+    check_geojson        = make_layer_geojson(check_m)
 
     # Wishing list - use integer lane_id for identification
     wishing['lane_id'] = range(len(wishing))
@@ -759,11 +845,11 @@ def main():
             result[feat_id] = [[e[0], e[1]] for e in covered]
         return result
 
-    print("  Computing per-feature layer edges...")
-    completed_feat_edges = compute_layer_feat_edges(completed)
-    construction_feat_edges = compute_layer_feat_edges(construction)
-    plan_feat_edges = compute_layer_feat_edges(plan)
-    check_feat_edges = compute_layer_feat_edges(check)
+    print("  Computing per-feature layer edges (merged)...")
+    completed_feat_edges    = compute_layer_feat_edges(completed_m)
+    construction_feat_edges = compute_layer_feat_edges(construction_m)
+    plan_feat_edges         = compute_layer_feat_edges(plan_m)
+    check_feat_edges        = compute_layer_feat_edges(check_m)
 
     # Flatten per-feature edges into layer-level lists (for backward compat)
     def flatten_feat_edges(feat_edges):
@@ -918,10 +1004,10 @@ def main():
 
     # Compute per-feature virtual edges for non-wishing layer types
     print("Computing virtual edges for other layer types...")
-    completed_feat_virtual_edges = compute_layer_feat_virtual_edges(completed)
-    construction_feat_virtual_edges = compute_layer_feat_virtual_edges(construction)
-    plan_feat_virtual_edges = compute_layer_feat_virtual_edges(plan)
-    check_feat_virtual_edges = compute_layer_feat_virtual_edges(check)
+    completed_feat_virtual_edges    = compute_layer_feat_virtual_edges(completed_m)
+    construction_feat_virtual_edges = compute_layer_feat_virtual_edges(construction_m)
+    plan_feat_virtual_edges         = compute_layer_feat_virtual_edges(plan_m)
+    check_feat_virtual_edges        = compute_layer_feat_virtual_edges(check_m)
 
     # Flatten per-feature virtual edges into layer-level lists (for backward compat)
     def flatten_feat_virtual_edges(feat_ves):
