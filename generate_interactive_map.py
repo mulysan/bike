@@ -3805,6 +3805,7 @@ updateComputePanel();
 
     <h2 style="color:#34495e">Overview</h2>
     <p>This tool ranks proposed ("wishing list") bike lanes by their potential contribution to city-wide accessibility. It uses a gravity-based accessibility model to measure how well people can reach jobs across the city, with bike lanes significantly reducing the effective travel cost.</p>
+    <p>The tool also allows interactive editing of the existing network: individual lane segments (completed, under construction, planned, or checked) can be deleted to simulate scenarios where certain infrastructure is unavailable. After computing accessibility, the <b>Area Changes</b> tab shows which statistical areas benefit most.</p>
 
     <h2 style="color:#34495e">The Accessibility Model</h2>
     <h3>Core Formula</h3>
@@ -3861,11 +3862,13 @@ updateComputePanel();
     <h2 style="color:#34495e">Road Network Construction</h2>
     <p>The road network is built from Jerusalem road data (from OpenStreetMap, KML format) with the following process:</p>
     <ol>
+      <li><b>Segment Merging</b>: Before network construction, connected bike lane segments of the same layer are merged into single features using a spatial Union-Find algorithm with a 20m endpoint snap tolerance. This reduces noise and simplifies the network (e.g., completed lanes: 979 raw → 109 merged features).</li>
       <li><b>Node Creation</b>: Road endpoints are snapped to a grid (15m tolerance) to create a connected graph</li>
       <li><b>Edge Creation</b>: Each road segment becomes an edge with its physical length as the base weight</li>
       <li><b>Bike Lane Matching</b>: Existing bike lanes are spatially matched to road edges using a 15m buffer and 50% overlap threshold</li>
       <li><b>Coordinate Systems</b>: Calculations use Israeli TM (EPSG:2039) for accurate distance; display uses WGS84 (EPSG:4326)</li>
     </ol>
+    <p style="background:#f5f5f5;padding:10px;border-radius:4px;font-size:0.9em"><b>Merged layer counts:</b> Completed 979→109, Under Construction 131→48, Planned 502→178, In Checking 86→41 features.</p>
 
     <h2 style="color:#34495e">Network Connectivity</h2>
     <p>The tool ensures the network is fully connected through several mechanisms:</p>
@@ -3911,11 +3914,14 @@ updateComputePanel();
     <h2 style="color:#34495e">Online Computation</h2>
     <p>All accessibility calculations are performed in the browser using JavaScript:</p>
     <ol>
-      <li><b>Baseline Computation</b>: When K or &theta; changes, compute accessibility with existing lanes only</li>
+      <li><b>Baseline Computation</b>: When K or &theta; changes, compute accessibility with the active existing-lane layers only (deleted segments are excluded)</li>
       <li><b>Network Update</b>: When wishing lanes are selected, mark their corresponding road edges as bike lanes (weight = length instead of length &times; K)</li>
       <li><b>Full Recomputation</b>: Run Dijkstra from each of the ~200 area centroids to compute new &tau;<sub>ij</sub> matrix</li>
       <li><b>Accessibility Aggregation</b>: Sum P<sub>i</sub> &times; E<sub>j</sub> &times; &tau;<sub>ij</sub><sup>&theta;</sup> for all pairs</li>
+      <li><b>Area Changes</b>: The Area Changes tab shows the top 20 statistical areas by percentage improvement in origin accessibility after computation</li>
     </ol>
+    <h4>Segment Deletion</h4>
+    <p>Each merged lane segment in the existing layers (completed, under construction, planned, checked) can be individually deleted via its popup. Deletions remove the segment's road edges from the bike-lane set, raising their weight to length &times; K in subsequent calculations. This allows scenario testing of infrastructure removal.</p>
 
     <h2 style="color:#34495e">How Lanes Are Ranked</h2>
     <ol>
@@ -3943,6 +3949,20 @@ updateComputePanel();
       <li><b>Accessibility Mode</b>: Shows absolute accessibility values</li>
       <li><b>Change Mode</b>: Shows percentage improvement from baseline after adding selected lanes</li>
     </ul>
+
+    <h2 style="color:#34495e">Network Statistics</h2>
+    <table style="width:100%;border-collapse:collapse;font-size:0.9em">
+      <tr style="background:#34495e;color:#fff"><th style="padding:8px;text-align:left">Metric</th><th style="padding:8px;text-align:left">Value</th></tr>
+      <tr><td style="padding:8px;border:1px solid #ddd">Road network nodes</td><td style="padding:8px;border:1px solid #ddd">9,628</td></tr>
+      <tr style="background:#f9f9f9"><td style="padding:8px;border:1px solid #ddd">Road network edges</td><td style="padding:8px;border:1px solid #ddd">13,725</td></tr>
+      <tr><td style="padding:8px;border:1px solid #ddd">Statistical areas</td><td style="padding:8px;border:1px solid #ddd">~200</td></tr>
+      <tr style="background:#f9f9f9"><td style="padding:8px;border:1px solid #ddd">Completed lane features (merged)</td><td style="padding:8px;border:1px solid #ddd">109</td></tr>
+      <tr><td style="padding:8px;border:1px solid #ddd">Under construction features (merged)</td><td style="padding:8px;border:1px solid #ddd">48</td></tr>
+      <tr style="background:#f9f9f9"><td style="padding:8px;border:1px solid #ddd">Planned features (merged)</td><td style="padding:8px;border:1px solid #ddd">178</td></tr>
+      <tr><td style="padding:8px;border:1px solid #ddd">In-checking features (merged)</td><td style="padding:8px;border:1px solid #ddd">41</td></tr>
+      <tr style="background:#f9f9f9"><td style="padding:8px;border:1px solid #ddd">Node merge tolerance</td><td style="padding:8px;border:1px solid #ddd">15 m</td></tr>
+      <tr><td style="padding:8px;border:1px solid #ddd">Segment snap distance (merge)</td><td style="padding:8px;border:1px solid #ddd">20 m</td></tr>
+    </table>
 
     <div style="text-align:center;margin-top:20px">
       <button onclick="document.getElementById('methodModal').style.display='none'" style="padding:10px 30px;background:#27ae60;color:#fff;border:none;border-radius:4px;font-size:14px;cursor:pointer">Close</button>
