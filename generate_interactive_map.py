@@ -576,10 +576,118 @@ def main():
     for i, feat in enumerate(areas_geojson['features']):
         feat['properties']['area_id'] = i
 
-    completed_geojson = geojson_from_gdf(completed[['geometry', 'Name']], ['Name']) if len(completed) > 0 else {"type": "FeatureCollection", "features": []}
-    construction_geojson = geojson_from_gdf(construction[['geometry', 'Name']], ['Name']) if len(construction) > 0 else {"type": "FeatureCollection", "features": []}
-    plan_geojson = geojson_from_gdf(plan[['geometry', 'Name']], ['Name']) if len(plan) > 0 else {"type": "FeatureCollection", "features": []}
-    check_geojson = geojson_from_gdf(check[['geometry', 'Name']], ['Name']) if len(check) > 0 else {"type": "FeatureCollection", "features": []}
+    # Assign feat_id to each feature in existing layers (for per-feature deletion)
+    def make_layer_geojson(gdf):
+        if len(gdf) == 0:
+            return {"type": "FeatureCollection", "features": []}
+        gdf = gdf.copy()
+        gdf['feat_id'] = range(len(gdf))
+        return geojson_from_gdf(gdf[['geometry', 'Name', 'feat_id']], ['Name', 'feat_id'])
+
+    def merge_layer_spatially(gdf, snap_dist=20):
+        """Merge line segments whose endpoints are within snap_dist metres into one feature."""
+        from shapely.ops import linemerge, unary_union
+        from shapely.geometry import Point
+        from shapely.strtree import STRtree
+        from collections import defaultdict
+
+        def _ls(geom):
+            if geom is None or geom.is_empty:
+                return []
+            if geom.geom_type == 'LineString':
+                return [geom]
+            if geom.geom_type == 'MultiLineString':
+                return list(geom.geoms)
+            return []
+
+        if gdf is None or len(gdf) == 0:
+            return gdf.copy()
+        gdf = gdf.copy().reset_index(drop=True)
+        gdf['Name'] = gdf['Name'].fillna('').astype(str)
+        # Drop Z coordinates before projecting to avoid NaN issues with 3D KML data
+        from shapely.ops import transform as shp_transform
+        def drop_z(g):
+            if g is None or g.is_empty:
+                return g
+            return shp_transform(lambda x, y, z=None: (x, y), g)
+        gdf['geometry'] = gdf['geometry'].apply(drop_z)
+        # Drop empty/null geometries
+        gdf = gdf[gdf['geometry'].notna() & ~gdf['geometry'].is_empty].reset_index(drop=True)
+        if len(gdf) == 0:
+            return gdf[['geometry', 'Name']]
+        gdf_proj = gdf.to_crs(TARGET_CRS)
+        n = len(gdf_proj)
+
+        # Collect endpoints (2D) for every linestring in each feature
+        feat_ep = []  # (feat_idx, (x, y))
+        for i, row in gdf_proj.iterrows():
+            for ls in _ls(row.geometry):
+                pts = list(ls.coords)
+                if pts:
+                    feat_ep.append((i, (pts[0][0],  pts[0][1])))
+                    feat_ep.append((i, (pts[-1][0], pts[-1][1])))
+
+        # Spatial index over endpoints
+        ep_pts = [Point(xy) for _, xy in feat_ep]
+        ep_tree = STRtree(ep_pts)
+
+        # Union-Find
+        parent = list(range(n))
+        def find(x):
+            while parent[x] != x:
+                parent[x] = parent[parent[x]]
+                x = parent[x]
+            return x
+        def union(x, y):
+            px, py = find(x), find(y)
+            if px != py:
+                parent[px] = py
+
+        for fi, (x, y) in feat_ep:
+            for idx in ep_tree.query(Point(x, y).buffer(snap_dist)):
+                fj = feat_ep[idx][0]
+                if fi != fj:
+                    union(fi, fj)
+
+        # Group and merge
+        components = defaultdict(list)
+        for i in range(n):
+            components[find(i)].append(i)
+
+        merged_geoms, merged_names = [], []
+        for indices in components.values():
+            geoms = [gdf_proj.iloc[i].geometry for i in indices]
+            names = [gdf.iloc[i]['Name'] for i in indices if gdf.iloc[i]['Name'].strip()]
+            merged = unary_union(geoms)
+            try:
+                merged = linemerge(merged)
+            except Exception:
+                pass
+            merged_geoms.append(merged)
+            merged_names.append(names[0] if names else '')
+
+        result = gpd.GeoDataFrame(
+            {'geometry': merged_geoms, 'Name': merged_names},
+            crs=gdf_proj.crs
+        ).reset_index(drop=True)
+        # Drop any degenerate geometries produced by the merge
+        result = result[result['geometry'].notna() & ~result['geometry'].is_empty].reset_index(drop=True)
+        return result
+
+    print("  Merging connected segments per layer (snap=20m)...")
+    completed_m   = merge_layer_spatially(completed[['geometry', 'Name']])
+    construction_m = merge_layer_spatially(construction[['geometry', 'Name']])
+    plan_m        = merge_layer_spatially(plan[['geometry', 'Name']])
+    check_m       = merge_layer_spatially(check[['geometry', 'Name']])
+    print(f"  Completed {len(completed)}→{len(completed_m)}, "
+          f"Construction {len(construction)}→{len(construction_m)}, "
+          f"Plan {len(plan)}→{len(plan_m)}, "
+          f"Check {len(check)}→{len(check_m)}")
+
+    completed_geojson    = make_layer_geojson(completed_m)
+    construction_geojson = make_layer_geojson(construction_m)
+    plan_geojson         = make_layer_geojson(plan_m)
+    check_geojson        = make_layer_geojson(check_m)
 
     # Wishing list - use integer lane_id for identification
     wishing['lane_id'] = range(len(wishing))
@@ -724,18 +832,20 @@ def main():
         # Store as list of [nodeA, nodeB] pairs
         wishing_edges[lid] = [[e[0], e[1]] for e in covered_edges]
 
-    # Compute edges for each non-wishing layer type (completed, construction, plan, check)
-    # These are computed as a single set of edges per layer (not per-lane)
-    def compute_layer_edges(layer_gdf):
-        """Find which road edges a layer covers (same logic as wishing lanes)."""
+    # Compute per-feature edges for each non-wishing layer type (completed, construction, plan, check)
+    # Returns dict {feat_id: [[nodeA, nodeB], ...]} so individual features can be excluded
+    def compute_layer_feat_edges(layer_gdf):
+        """Find which road edges each feature of a layer covers (per-feature, like wishing lanes)."""
         if layer_gdf is None or len(layer_gdf) == 0 or road_tree_spatial is None:
-            return []
+            return {}
         layer_proj = layer_gdf.to_crs(TARGET_CRS)
-        covered = set()
-        for _, row in layer_proj.iterrows():
+        result = {}
+        for feat_id, (_, row) in enumerate(layer_proj.iterrows()):
             geom = row.geometry
             if geom is None or geom.is_empty:
+                result[feat_id] = []
                 continue
+            covered = set()
             for line in get_linestrings(geom):
                 buffered = line.buffer(BUFFER_DIST)
                 candidate_indices = road_tree_spatial.query(buffered)
@@ -746,29 +856,50 @@ def main():
                             covered.add(road_edges_list[idx])
                     except:
                         pass
-        return [[e[0], e[1]] for e in covered]
+            result[feat_id] = [[e[0], e[1]] for e in covered]
+        return result
 
-    print("  Computing layer edges...")
-    completed_edges = compute_layer_edges(completed)
-    construction_edges = compute_layer_edges(construction)
-    plan_edges = compute_layer_edges(plan)
-    check_edges = compute_layer_edges(check)
-    print(f"  Completed: {len(completed_edges)} edges, Construction: {len(construction_edges)} edges, Plan: {len(plan_edges)} edges, Check: {len(check_edges)} edges")
+    print("  Computing per-feature layer edges (merged)...")
+    completed_feat_edges    = compute_layer_feat_edges(completed_m)
+    construction_feat_edges = compute_layer_feat_edges(construction_m)
+    plan_feat_edges         = compute_layer_feat_edges(plan_m)
+    check_feat_edges        = compute_layer_feat_edges(check_m)
 
-    # Compute virtual edges for each non-wishing layer type
-    def compute_layer_virtual_edges(layer_gdf):
-        """Create virtual edges for a layer (same logic as wishing lanes)."""
+    # Flatten per-feature edges into layer-level lists (for backward compat)
+    def flatten_feat_edges(feat_edges):
+        seen = set()
+        result = []
+        for edges in feat_edges.values():
+            for e in edges:
+                k = (min(e[0], e[1]), max(e[0], e[1]))
+                if k not in seen:
+                    seen.add(k)
+                    result.append(e)
+        return result
+
+    completed_edges = flatten_feat_edges(completed_feat_edges)
+    construction_edges = flatten_feat_edges(construction_feat_edges)
+    plan_edges = flatten_feat_edges(plan_feat_edges)
+    check_edges = flatten_feat_edges(check_feat_edges)
+    print(f"  Completed: {len(completed_edges)} edges ({len(completed_feat_edges)} features), Construction: {len(construction_edges)} edges ({len(construction_feat_edges)} features), Plan: {len(plan_edges)} edges ({len(plan_feat_edges)} features), Check: {len(check_edges)} edges ({len(check_feat_edges)} features)")
+
+    # Compute per-feature virtual edges for each non-wishing layer type
+    # Returns dict {feat_id: [{from, to, len, geometry}, ...]}
+    def compute_layer_feat_virtual_edges(layer_gdf):
+        """Create virtual edges per feature of a layer (same logic as wishing lanes)."""
         if layer_gdf is None or len(layer_gdf) == 0 or node_tree is None:
-            return []
+            return {}
         from shapely.ops import substring as substr
         from shapely.geometry import Point as Pt
         layer_proj_data = layer_gdf.to_crs(TARGET_CRS)
         layer_wgs_data = layer_gdf.to_crs(WGS84)
-        virtual_edges_result = []
-        for row_idx in range(len(layer_proj_data)):
-            geom = layer_proj_data.iloc[row_idx].geometry
-            geom_wgs = layer_wgs_data.iloc[row_idx].geometry
+        result = {}
+        for feat_id in range(len(layer_proj_data)):
+            geom = layer_proj_data.iloc[feat_id].geometry
+            geom_wgs = layer_wgs_data.iloc[feat_id].geometry
+            feat_ves = []
             if geom is None or geom.is_empty:
+                result[feat_id] = feat_ves
                 continue
             for line, line_wgs in zip(get_linestrings(geom), get_linestrings(geom_wgs)):
                 line_length = line.length
@@ -793,16 +924,17 @@ def main():
                             edge_geom_wgs = substr(line_wgs, n1['proj_dist'], n2['proj_dist'])
                             if edge_geom_wgs and not edge_geom_wgs.is_empty and edge_geom_wgs.geom_type == 'LineString':
                                 coords_wgs = [[round(c[0], 6), round(c[1], 6)] for c in edge_geom_wgs.coords]
-                                virtual_edges_result.append({
+                                feat_ves.append({
                                     'from': n1['node_id'], 'to': n2['node_id'],
                                     'len': round(edge_len, 1), 'geometry': coords_wgs
                                 })
                         except:
-                            virtual_edges_result.append({
+                            feat_ves.append({
                                 'from': n1['node_id'], 'to': n2['node_id'],
                                 'len': round(edge_len, 1)
                             })
-        return virtual_edges_result
+            result[feat_id] = feat_ves
+        return result
 
     # Create virtual edges for wishing lanes (similar to existing bike lanes)
     # This ensures wishing lanes can provide connectivity even where they don't follow roads
@@ -884,12 +1016,21 @@ def main():
     total_wishing_virtual = sum(len(v) for v in wishing_virtual_edges.values())
     print(f"  Created {total_wishing_virtual} virtual edges for wishing lanes")
 
-    # Compute virtual edges for non-wishing layer types
+    # Compute per-feature virtual edges for non-wishing layer types
     print("Computing virtual edges for other layer types...")
-    completed_virtual_edges = compute_layer_virtual_edges(completed)
-    construction_virtual_edges = compute_layer_virtual_edges(construction)
-    plan_virtual_edges = compute_layer_virtual_edges(plan)
-    check_virtual_edges = compute_layer_virtual_edges(check)
+    completed_feat_virtual_edges    = compute_layer_feat_virtual_edges(completed_m)
+    construction_feat_virtual_edges = compute_layer_feat_virtual_edges(construction_m)
+    plan_feat_virtual_edges         = compute_layer_feat_virtual_edges(plan_m)
+    check_feat_virtual_edges        = compute_layer_feat_virtual_edges(check_m)
+
+    # Flatten per-feature virtual edges into layer-level lists (for backward compat)
+    def flatten_feat_virtual_edges(feat_ves):
+        return [ve for ves in feat_ves.values() for ve in ves]
+
+    completed_virtual_edges = flatten_feat_virtual_edges(completed_feat_virtual_edges)
+    construction_virtual_edges = flatten_feat_virtual_edges(construction_feat_virtual_edges)
+    plan_virtual_edges = flatten_feat_virtual_edges(plan_feat_virtual_edges)
+    check_virtual_edges = flatten_feat_virtual_edges(check_feat_virtual_edges)
     print(f"  Completed: {len(completed_virtual_edges)}, Construction: {len(construction_virtual_edges)}, Plan: {len(plan_virtual_edges)}, Check: {len(check_virtual_edges)} virtual edges")
 
     # Area centroids in WGS84
@@ -940,12 +1081,20 @@ def main():
         edge_geoms_wgs=edge_geoms_wgs,
         completed_edges=completed_edges,
         completed_virtual_edges=completed_virtual_edges,
+        completed_feat_edges=completed_feat_edges,
+        completed_feat_virtual_edges=completed_feat_virtual_edges,
         construction_edges=construction_edges,
         construction_virtual_edges=construction_virtual_edges,
+        construction_feat_edges=construction_feat_edges,
+        construction_feat_virtual_edges=construction_feat_virtual_edges,
         plan_edges=plan_edges,
         plan_virtual_edges=plan_virtual_edges,
+        plan_feat_edges=plan_feat_edges,
+        plan_feat_virtual_edges=plan_feat_virtual_edges,
         check_edges=check_edges,
         check_virtual_edges=check_virtual_edges,
+        check_feat_edges=check_feat_edges,
+        check_feat_virtual_edges=check_feat_virtual_edges,
         wishing_edges=wishing_edges,
         wishing_geoms=wishing_geoms,
         wishing_virtual_edges=wishing_virtual_edges,
@@ -968,9 +1117,13 @@ def generate_html(*, areas_geojson, completed_geojson, construction_geojson,
                   data_years, default_year, area_center_nodes,
                   nodes_wgs, edges_list, edge_geoms_wgs,
                   completed_edges, completed_virtual_edges,
+                  completed_feat_edges, completed_feat_virtual_edges,
                   construction_edges, construction_virtual_edges,
+                  construction_feat_edges, construction_feat_virtual_edges,
                   plan_edges, plan_virtual_edges,
+                  plan_feat_edges, plan_feat_virtual_edges,
                   check_edges, check_virtual_edges,
+                  check_feat_edges, check_feat_virtual_edges,
                   wishing_edges, wishing_geoms,
                   wishing_virtual_edges, centroids_wgs,
                   k_values, theta_values, version='dev'):
@@ -1028,7 +1181,7 @@ button:hover{{background:#2980b9}}
 #map{{width:100%;height:100%}}
 .sidebar{{width:380px;background:#ecf0f1;overflow-y:auto;padding:12px;font-size:.9em}}
 .sidebar h3{{margin:0 0 8px;color:#2c3e50;border-bottom:2px solid #3498db;padding-bottom:4px}}
-.tabs{{display:flex;gap:6px;margin-bottom:10px}}
+.tabs{{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px}}
 .tabs button{{flex:1;padding:8px;text-align:center}}
 .tabs button.act{{background:#27ae60}}
 .tc{{display:none}}.tc.act{{display:block}}
@@ -1036,6 +1189,8 @@ button:hover{{background:#2980b9}}
 .lane:hover{{background:#d5dbdb}}
 .lane.sel{{background:#a9dfbf;border-color:#27ae60}}
 .lane .pct{{font-weight:700;color:#27ae60;white-space:nowrap;margin-left:8px}}
+.lane .del-lane-btn{{padding:2px 6px;font-size:11px;background:#e74c3c;color:#fff;border:none;border-radius:3px;cursor:pointer;opacity:0.6;flex-shrink:0;margin-left:6px}}
+.lane .del-lane-btn:hover{{opacity:1;background:#c0392b}}
 .legend{{position:absolute;bottom:30px;right:10px;background:#fff;padding:10px;border-radius:5px;box-shadow:0 2px 5px rgba(0,0,0,.3);z-index:1000;font-size:.85em}}
 .legend-item{{display:flex;align-items:center;gap:8px;margin:4px 0}}
 .legend-line{{width:24px;height:4px;border-radius:2px}}
@@ -1163,6 +1318,7 @@ button:hover{{background:#2980b9}}
       <button onclick="showTab('draw',this)">Draw Lane</button>
       <button onclick="showTab('paths',this)">Find Path</button>
       <button onclick="showTab('compute',this)">Compute Accessibility</button>
+      <button onclick="showTab('areas',this)">Area Changes</button>
       <button onclick="showTab('rank',this)">Rank Lanes</button>
     </div>
     <div id="lanes" class="tc act">
@@ -1217,7 +1373,10 @@ button:hover{{background:#2980b9}}
         <label>Destination area:</label>
         <input type="text" id="destInput" list="areaList" placeholder="Search area..." style="width:100%;padding:6px;margin-bottom:8px;border:1px solid #ddd;border-radius:4px">
         <datalist id="areaList"></datalist>
-        <button onclick="showPath()">Show path</button>
+        <div style="display:flex;gap:8px">
+          <button onclick="showPath()">Show path</button>
+          <button onclick="clearPath()" style="background:#f5f5f5;color:#333">Clear path</button>
+        </div>
       </div>
       <div id="pointPathMode" style="display:none" class="path-ctl">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
@@ -1233,9 +1392,17 @@ button:hover{{background:#2980b9}}
           <button onclick="clearPathPoint('dest')" style="padding:4px 8px;background:#f5f5f5">X</button>
         </div>
         <div id="pickingStatus" style="font-size:.85em;color:#e91e63;margin-bottom:8px"></div>
-        <button onclick="showPath()">Show path</button>
+        <div style="display:flex;gap:8px">
+          <button onclick="showPath()">Show path</button>
+          <button onclick="clearPath()" style="background:#f5f5f5;color:#333">Clear path</button>
+        </div>
       </div>
       <div id="pathInfo"></div>
+    </div>
+    <div id="areas" class="tc">
+      <h3>Area Changes</h3>
+      <div class="note">Top 20 areas by accessibility improvement after computing. Run Compute Accessibility first.</div>
+      <div id="areaChangesList" style="margin-top:10px"></div>
     </div>
     <div id="rank" class="tc">
       <h3>Rank Lanes</h3>
@@ -1284,19 +1451,33 @@ const AREA_NODES={js_json(area_center_nodes)};
 const NODES={js_json(nodes_wgs)};
 const EDGES={js_json(edges_list)};
 const EDGE_GEOMS={js_json(edge_geoms_wgs)};
-// Per-layer edge sets: which road edges each layer covers
+// Per-layer edge sets: which road edges each layer covers (flat, all features combined)
 const LAYER_EDGES={{
   completed:{js_json(completed_edges)},
   construction:{js_json(construction_edges)},
   plan:{js_json(plan_edges)},
   check:{js_json(check_edges)}
 }};
-// Per-layer virtual edges
+// Per-layer virtual edges (flat)
 const LAYER_VIRTUAL_EDGES={{
   completed:{js_json(completed_virtual_edges)},
   construction:{js_json(construction_virtual_edges)},
   plan:{js_json(plan_virtual_edges)},
   check:{js_json(check_virtual_edges)}
+}};
+// Per-feature edge sets for deletable segments
+const LAYER_FEAT_EDGES={{
+  completed:{js_json(completed_feat_edges)},
+  construction:{js_json(construction_feat_edges)},
+  plan:{js_json(plan_feat_edges)},
+  check:{js_json(check_feat_edges)}
+}};
+// Per-feature virtual edges for deletable segments
+const LAYER_FEAT_VIRTUAL_EDGES={{
+  completed:{js_json(completed_feat_virtual_edges)},
+  construction:{js_json(construction_feat_virtual_edges)},
+  plan:{js_json(plan_feat_virtual_edges)},
+  check:{js_json(check_feat_virtual_edges)}
 }};
 const WISHING_EDGES={js_json(wishing_edges)};
 const WISHING_GEOMS={js_json(wishing_geoms)};
@@ -1307,8 +1488,16 @@ const CENTROIDS={js_json(centroids_wgs)};
 
 // === STATE ===
 const sel=new Set();
+const deletedLanes=new Set();
 let wishLyr,areasLyr,pathLyrGroup;
+
+// Registry for deletable existing lane segments
+const _segReg={{}};
+let _segUid=0;
 let completedLyr,constructionLyr,planLyr,checkLyr;
+
+// Deleted existing layer segments: {{layer_name: Set of feat_ids}}
+const deletedSegs={{completed:new Set(),construction:new Set(),plan:new Set(),check:new Set()}};
 // Layer toggle state: which layers are included in the network for calculations
 const activeLayers={{completed:true,construction:true,plan:false,check:false,wishing:false}};
 let currentK=10;
@@ -1414,7 +1603,7 @@ function onParamsChanged(){{
 }}
 
 function selectAllLanes(){{
-  for(let i=0;i<LANE_NAMES.length;i++)sel.add(i);
+  for(let i=0;i<LANE_NAMES.length;i++)if(!deletedLanes.has(i))sel.add(i);
   refresh();
 }}
 
@@ -1434,8 +1623,8 @@ function toggleLayer(name){{
   if(name==='wishing'){{
     if(cb.checked){{
       wishLyr.addTo(map);
-      // Select all wishing lanes
-      for(let i=0;i<LANE_NAMES.length;i++)sel.add(i);
+      // Select all wishing lanes (skip deleted)
+      for(let i=0;i<LANE_NAMES.length;i++)if(!deletedLanes.has(i))sel.add(i);
     }}else{{
       map.removeLayer(wishLyr);
       sel.clear();
@@ -1444,27 +1633,35 @@ function toggleLayer(name){{
   onParamsChanged();
 }}
 
-// Build set of all edges covered by active layers (non-wishing)
+// Build set of all edges covered by active layers (non-wishing), skipping deleted features
 function getActiveLayerEdgeSet(){{
   const edgeSet=new Set();
   for(const name of ['completed','construction','plan','check']){{
     if(!activeLayers[name])continue;
-    const edges=LAYER_EDGES[name]||[];
-    for(const e of edges){{
-      const a=Math.min(e[0],e[1]),b=Math.max(e[0],e[1]);
-      edgeSet.add(a+'_'+b);
+    const featEdges=LAYER_FEAT_EDGES[name]||{{}};
+    const deleted=deletedSegs[name]||new Set();
+    for(const [fid,edges] of Object.entries(featEdges)){{
+      if(deleted.has(Number(fid)))continue;
+      for(const e of edges){{
+        const a=Math.min(e[0],e[1]),b=Math.max(e[0],e[1]);
+        edgeSet.add(a+'_'+b);
+      }}
     }}
   }}
   return edgeSet;
 }}
 
-// Build array of all virtual edges from active layers (non-wishing)
+// Build array of all virtual edges from active layers (non-wishing), skipping deleted features
 function getActiveLayerVirtualEdges(){{
   const result=[];
   for(const name of ['completed','construction','plan','check']){{
     if(!activeLayers[name])continue;
-    const ves=LAYER_VIRTUAL_EDGES[name]||[];
-    for(const ve of ves)result.push(ve);
+    const featVes=LAYER_FEAT_VIRTUAL_EDGES[name]||{{}};
+    const deleted=deletedSegs[name]||new Set();
+    for(const [fid,ves] of Object.entries(featVes)){{
+      if(deleted.has(Number(fid)))continue;
+      for(const ve of ves)result.push(ve);
+    }}
   }}
   return result;
 }}
@@ -1590,40 +1787,58 @@ areasLyr=L.geoJSON(AREAS,{{
   }}
 }}).addTo(map);
 
-// Helper to create a lane layer with popup
-function makeLaneLayer(data,color,label){{
-  return L.geoJSON(data,{{style:{{color:color,weight:3,opacity:.8}},
-    onEachFeature:(f,l)=>{{
-      const content="<b>"+label+":</b> "+(f.properties.Name||"");
-      l.on('click',function(e){{
-        if(isDrawing)return;
-        if(pickingPointFor){{onPathPointClick(e);return;}}
-        L.popup().setLatLng(e.latlng).setContent(content).openOn(map);
-      }});
-    }}
+// Helper to create a lane layer with popup and delete button
+function makeLaneLayer(data,color,label,layerName){{
+  const geoLayer=L.geoJSON(data,{{style:{{color:color,weight:3,opacity:.8}}}});
+  geoLayer.eachLayer(l=>{{
+    const uid=_segUid++;
+    const featId=l.feature.properties.feat_id;
+    _segReg[uid]={{parent:geoLayer,layer:l,layerName:layerName,featId:featId}};
+    const name=l.feature.properties.Name||"(unnamed)";
+    const content="<b>"+label+":</b> "+name+
+      '<br><button onclick="deleteExistingSegment('+uid+')" style="margin-top:6px;padding:3px 10px;background:#e74c3c;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:12px">Delete this segment</button>';
+    l.on('click',function(e){{
+      if(isDrawing)return;
+      if(pickingPointFor){{onPathPointClick(e);return;}}
+      L.popup().setLatLng(e.latlng).setContent(content).openOn(map);
+    }});
   }});
+  return geoLayer;
+}}
+
+function deleteExistingSegment(uid){{
+  const entry=_segReg[uid];
+  if(!entry)return;
+  if(!confirm('Delete this lane segment from the map and network?'))return;
+  map.closePopup();
+  entry.parent.removeLayer(entry.layer);
+  if(entry.layerName&&entry.featId!=null){{
+    deletedSegs[entry.layerName].add(entry.featId);
+    baselineAcc=null;computedAcc=null; // invalidate cached results
+  }}
+  delete _segReg[uid];
 }}
 
 // Completed (dark green) - on by default
 if(COMPLETED.features.length){{
-  completedLyr=makeLaneLayer(COMPLETED,"#1B5E20","Existing");
+  completedLyr=makeLaneLayer(COMPLETED,"#1B5E20","Existing","completed");
   completedLyr.addTo(map);
 }}
 
 // Construction (light green) - on by default
 if(CONSTRUCTION.features.length){{
-  constructionLyr=makeLaneLayer(CONSTRUCTION,"#81C784","Under construction");
+  constructionLyr=makeLaneLayer(CONSTRUCTION,"#81C784","Under construction","construction");
   constructionLyr.addTo(map);
 }}
 
 // Plan (blue) - off by default
 if(PLAN.features.length){{
-  planLyr=makeLaneLayer(PLAN,"#2196F3","In planning");
+  planLyr=makeLaneLayer(PLAN,"#2196F3","In planning","plan");
 }}
 
 // Check (cyan) - off by default
 if(CHECK.features.length){{
-  checkLyr=makeLaneLayer(CHECK,"#00BCD4","In checking");
+  checkLyr=makeLaneLayer(CHECK,"#00BCD4","In checking","check");
 }}
 
 // Wishing list (orange, purple when selected)
@@ -1660,8 +1875,15 @@ const areaNameToId={{}};
 function refresh(){{
   // Update wishing layer style
   wishLyr.setStyle(f=>{{
-    const s=sel.has(f.properties.lane_id);
+    const lid=f.properties.lane_id;
+    if(deletedLanes.has(lid))return {{opacity:0,weight:0}};
+    const s=sel.has(lid);
     return {{color:s?"#9b59b6":"#FF9800",weight:s?5:3,opacity:.8}};
+  }});
+  wishLyr.eachLayer(l=>{{
+    if(deletedLanes.has(l.feature.properties.lane_id)){{
+      l.off('click');l.off('mouseover');l.off('mouseout');
+    }}
   }});
   // Update lane list
   buildLaneList();
@@ -1676,16 +1898,35 @@ function refresh(){{
 
 function buildLaneList(){{
   const search=(document.getElementById("laneSearch").value||"").toLowerCase();
-  // Build alphabetically sorted list
-  const items=LANE_NAMES.map((name,i)=>({{id:i,name:name}}));
+  // Build alphabetically sorted list, skip deleted lanes
+  const items=LANE_NAMES.map((name,i)=>({{id:i,name:name}})).filter(it=>!deletedLanes.has(it.id));
   items.sort((a,b)=>a.name.localeCompare(b.name,'he'));
   // Filter by search
   const filtered=search?items.filter(it=>it.name.toLowerCase().includes(search)):items;
   const container=document.getElementById("laneList");
-  container.innerHTML=filtered.map(it=>{{
+  let html=filtered.map(it=>{{
     const cls=sel.has(it.id)?"lane sel":"lane";
-    return '<div class="'+cls+'" onclick="toggleLane('+it.id+')"><span>'+it.name+'</span></div>';
+    return '<div class="'+cls+'" onclick="toggleLane('+it.id+')">'+
+      '<span>'+it.name+'</span>'+
+      '<button class="del-lane-btn" onclick="event.stopPropagation();deleteWishingLane('+it.id+')" title="Remove lane">✕</button>'+
+      '</div>';
   }}).join("");
+  if(deletedLanes.size>0){{
+    html='<div style="margin-bottom:8px;font-size:.85em;color:#888">'+deletedLanes.size+' lane'+(deletedLanes.size>1?'s':'')+' hidden. <a href="#" onclick="event.preventDefault();restoreAllLanes()">Restore all</a></div>'+html;
+  }}
+  container.innerHTML=html;
+}}
+
+function deleteWishingLane(id){{
+  if(!confirm('Hide lane "'+LANE_NAMES[id]+'" from the list?'))return;
+  sel.delete(id);
+  deletedLanes.add(id);
+  refresh();
+}}
+
+function restoreAllLanes(){{
+  deletedLanes.clear();
+  refresh();
 }}
 
 function filterLanes(){{
@@ -1905,6 +2146,15 @@ function clearPathPoint(which){{
     if(pathDestMarker){{map.removeLayer(pathDestMarker);pathDestMarker=null;}}
     document.getElementById('destPointLabel').innerHTML='Not set - click Pick';
   }}
+}}
+
+function clearPath(){{
+  clearPathPoint('origin');
+  clearPathPoint('dest');
+  document.getElementById('origInput').value='';
+  document.getElementById('destInput').value='';
+  if(pathLyrGroup){{map.removeLayer(pathLyrGroup);pathLyrGroup=null;}}
+  document.getElementById('pathInfo').innerHTML='';
 }}
 
 function showPath(){{
@@ -2223,6 +2473,7 @@ function computeAccessibility(){{
           '<p style="font-size:.85em;margin-top:8px">Switch to "Change (%)" mode to see per-area improvements.</p>'+
           '</div>';
         updateAreaColors();
+        updateAreaChangesTab();
         return;
       }}
 
@@ -3449,6 +3700,7 @@ computeAccessibility=function(){{
           '<p style="font-size:.85em;margin-top:8px">Switch to "Change (%)" mode to see per-area improvements.</p>'+
           '</div>';
         updateAreaColors();
+        updateAreaChangesTab();
 
         if(userCount>0){{
           document.getElementById('userLaneImpact').innerHTML=
@@ -3507,6 +3759,36 @@ computeAccessibility=function(){{
     processArea(0);
   }},50);
 }};
+
+function updateAreaChangesTab(){{
+  const el=document.getElementById('areaChangesList');
+  if(!el)return;
+  if(!computedAcc||!baselineAcc){{
+    el.innerHTML='<p style="color:#888">No computed data yet. Run Compute Accessibility first.</p>';
+    return;
+  }}
+  const n=AREA_NODES.length;
+  const changes=[];
+  for(let i=0;i<n;i++){{
+    const base=baselineAcc.orig[i]||0;
+    const comp=computedAcc.orig[i]||0;
+    const pct=base>0?100*(comp-base)/base:0;
+    changes.push({{id:AREA_NODES[i],name:AREA_NAMES[i],base:base,comp:comp,pct:pct}});
+  }}
+  changes.sort((a,b)=>b.pct-a.pct);
+  const top=changes.slice(0,20);
+  let html='<table style="width:100%;border-collapse:collapse;font-size:.85em">';
+  html+='<tr style="background:#f0f0f0"><th style="text-align:left;padding:4px">Area</th><th style="text-align:right;padding:4px">Change</th></tr>';
+  for(const r of top){{
+    const color=r.pct>=0?'#27ae60':'#e74c3c';
+    html+='<tr style="border-bottom:1px solid #eee">';
+    html+='<td style="padding:4px">'+r.name+'</td>';
+    html+='<td style="text-align:right;padding:4px;color:'+color+';font-weight:bold">'+(r.pct>=0?'+':'')+r.pct.toFixed(2)+'%</td>';
+    html+='</tr>';
+  }}
+  html+='</table>';
+  el.innerHTML=html;
+}}
 
 // Initial render
 buildLaneList();
