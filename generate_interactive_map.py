@@ -576,85 +576,7 @@ def main():
     for i, feat in enumerate(areas_geojson['features']):
         feat['properties']['area_id'] = i
 
-    def _get_linestrings(geom):
-        if geom is None or geom.is_empty:
-            return []
-        if geom.geom_type == 'LineString':
-            return [geom]
-        elif geom.geom_type == 'MultiLineString':
-            return list(geom.geoms)
-        return []
-
-    # Merge spatially connected segments into one feature using endpoint proximity.
-    # Two line features are connected if any of their endpoints are within snap_dist metres.
-    # Connected components are merged with linemerge so the result is fewer, longer segments.
-    def merge_layer_spatially(gdf, snap_dist=10):
-        from shapely.ops import linemerge, unary_union
-        from shapely.geometry import Point
-        from shapely.strtree import STRtree
-        from collections import defaultdict
-        if gdf is None or len(gdf) == 0:
-            return gdf.copy()[['geometry', 'Name']].reset_index(drop=True)
-        gdf = gdf.copy().reset_index(drop=True)
-        gdf['Name'] = gdf['Name'].fillna('').astype(str)
-        # Work in projected CRS for accurate distance
-        gdf_proj = gdf.to_crs(TARGET_CRS)
-        n = len(gdf_proj)
-
-        # Collect all endpoints with their feature index
-        feat_ep = []  # (feat_idx, (x, y))
-        for i, row in gdf_proj.iterrows():
-            for ls in _get_linestrings(row.geometry):
-                pts = list(ls.coords)
-                if pts:
-                    feat_ep.append((i, (pts[0][0], pts[0][1])))
-                    feat_ep.append((i, (pts[-1][0], pts[-1][1])))
-
-        # Build spatial index over endpoints
-        ep_pts = [Point(ep[1]) for ep in feat_ep]
-        ep_tree = STRtree(ep_pts)
-
-        # Union-Find for connected components
-        parent = list(range(n))
-        def find(x):
-            while parent[x] != x:
-                parent[x] = parent[parent[x]]
-                x = parent[x]
-            return x
-        def union(x, y):
-            px, py = find(x), find(y)
-            if px != py:
-                parent[px] = py
-
-        for fi, xy in feat_ep:
-            x, y = xy[0], xy[1]
-            buf = Point(x, y).buffer(snap_dist)
-            for idx in ep_tree.query(buf):
-                fj = feat_ep[idx][0]
-                if fi != fj:
-                    union(fi, fj)
-
-        # Group by component
-        components = defaultdict(list)
-        for i in range(n):
-            components[find(i)].append(i)
-
-        # Merge each component's geometries
-        merged_geoms, merged_names, merged_crs = [], [], gdf_proj.crs
-        for comp_indices in components.values():
-            geoms = [gdf_proj.iloc[i].geometry for i in comp_indices]
-            names = [gdf.iloc[i]['Name'] for i in comp_indices if gdf.iloc[i]['Name'].strip()]
-            merged = unary_union(geoms)
-            try:
-                merged = linemerge(merged)
-            except Exception:
-                pass
-            merged_geoms.append(merged)
-            merged_names.append(names[0] if names else '')
-
-        result = gpd.GeoDataFrame({'geometry': merged_geoms, 'Name': merged_names}, crs=merged_crs)
-        return result.reset_index(drop=True)
-
+    # Assign feat_id to each feature in existing layers (for per-feature deletion)
     def make_layer_geojson(gdf):
         if len(gdf) == 0:
             return {"type": "FeatureCollection", "features": []}
@@ -662,16 +584,10 @@ def main():
         gdf['feat_id'] = range(len(gdf))
         return geojson_from_gdf(gdf[['geometry', 'Name', 'feat_id']], ['Name', 'feat_id'])
 
-    completed_merged = merge_layer_spatially(completed[['geometry', 'Name']])
-    construction_merged = merge_layer_spatially(construction[['geometry', 'Name']])
-    plan_merged = merge_layer_spatially(plan[['geometry', 'Name']])
-    check_merged = merge_layer_spatially(check[['geometry', 'Name']])
-    print(f"  After merging by name: Completed {len(completed)}→{len(completed_merged)}, Construction {len(construction)}→{len(construction_merged)}, Plan {len(plan)}→{len(plan_merged)}, Check {len(check)}→{len(check_merged)} features")
-
-    completed_geojson = make_layer_geojson(completed_merged)
-    construction_geojson = make_layer_geojson(construction_merged)
-    plan_geojson = make_layer_geojson(plan_merged)
-    check_geojson = make_layer_geojson(check_merged)
+    completed_geojson = make_layer_geojson(completed[['geometry', 'Name']])
+    construction_geojson = make_layer_geojson(construction[['geometry', 'Name']])
+    plan_geojson = make_layer_geojson(plan[['geometry', 'Name']])
+    check_geojson = make_layer_geojson(check[['geometry', 'Name']])
 
     # Wishing list - use integer lane_id for identification
     wishing['lane_id'] = range(len(wishing))
@@ -843,11 +759,11 @@ def main():
             result[feat_id] = [[e[0], e[1]] for e in covered]
         return result
 
-    print("  Computing per-feature layer edges (on merged features)...")
-    completed_feat_edges = compute_layer_feat_edges(completed_merged)
-    construction_feat_edges = compute_layer_feat_edges(construction_merged)
-    plan_feat_edges = compute_layer_feat_edges(plan_merged)
-    check_feat_edges = compute_layer_feat_edges(check_merged)
+    print("  Computing per-feature layer edges...")
+    completed_feat_edges = compute_layer_feat_edges(completed)
+    construction_feat_edges = compute_layer_feat_edges(construction)
+    plan_feat_edges = compute_layer_feat_edges(plan)
+    check_feat_edges = compute_layer_feat_edges(check)
 
     # Flatten per-feature edges into layer-level lists (for backward compat)
     def flatten_feat_edges(feat_edges):
@@ -1002,10 +918,10 @@ def main():
 
     # Compute per-feature virtual edges for non-wishing layer types
     print("Computing virtual edges for other layer types...")
-    completed_feat_virtual_edges = compute_layer_feat_virtual_edges(completed_merged)
-    construction_feat_virtual_edges = compute_layer_feat_virtual_edges(construction_merged)
-    plan_feat_virtual_edges = compute_layer_feat_virtual_edges(plan_merged)
-    check_feat_virtual_edges = compute_layer_feat_virtual_edges(check_merged)
+    completed_feat_virtual_edges = compute_layer_feat_virtual_edges(completed)
+    construction_feat_virtual_edges = compute_layer_feat_virtual_edges(construction)
+    plan_feat_virtual_edges = compute_layer_feat_virtual_edges(plan)
+    check_feat_virtual_edges = compute_layer_feat_virtual_edges(check)
 
     # Flatten per-feature virtual edges into layer-level lists (for backward compat)
     def flatten_feat_virtual_edges(feat_ves):
@@ -1302,7 +1218,6 @@ button:hover{{background:#2980b9}}
       <button onclick="showTab('draw',this)">Draw Lane</button>
       <button onclick="showTab('paths',this)">Find Path</button>
       <button onclick="showTab('compute',this)">Compute Accessibility</button>
-      <button onclick="showTab('areas',this)">Area Changes</button>
       <button onclick="showTab('rank',this)">Rank Lanes</button>
     </div>
     <div id="lanes" class="tc act">
@@ -1358,7 +1273,6 @@ button:hover{{background:#2980b9}}
         <input type="text" id="destInput" list="areaList" placeholder="Search area..." style="width:100%;padding:6px;margin-bottom:8px;border:1px solid #ddd;border-radius:4px">
         <datalist id="areaList"></datalist>
         <button onclick="showPath()">Show path</button>
-        <button onclick="clearPath()" style="background:#e74c3c;margin-left:6px">Clear path</button>
       </div>
       <div id="pointPathMode" style="display:none" class="path-ctl">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
@@ -1375,14 +1289,8 @@ button:hover{{background:#2980b9}}
         </div>
         <div id="pickingStatus" style="font-size:.85em;color:#e91e63;margin-bottom:8px"></div>
         <button onclick="showPath()">Show path</button>
-        <button onclick="clearPath()" style="background:#e74c3c;margin-left:6px">Clear path</button>
       </div>
       <div id="pathInfo"></div>
-    </div>
-    <div id="areas" class="tc">
-      <h3>Top Area Changes</h3>
-      <div class="note">Shows the 20 areas with the largest accessibility improvement after computing. Run "Compute Accessibility" first.</div>
-      <div id="areaChangesList"><p style="color:#888;font-size:.9em">No results yet — click Compute Accessibility first.</p></div>
     </div>
     <div id="rank" class="tc">
       <h3>Rank Lanes</h3>
@@ -2128,21 +2036,6 @@ function clearPathPoint(which){{
   }}
 }}
 
-function clearPath(){{
-  if(pathLyrGroup){{map.removeLayer(pathLyrGroup);pathLyrGroup=null;}}
-  document.getElementById('pathInfo').innerHTML='';
-  document.getElementById('origInput').value='';
-  document.getElementById('destInput').value='';
-  clearPathPoint('origin');
-  clearPathPoint('dest');
-  if(pickingPointFor){{
-    map.off('click',onPathPointClick);
-    map.getContainer().style.cursor='';
-    document.getElementById('pickingStatus').innerHTML='';
-    pickingPointFor=null;
-  }}
-}}
-
 function showPath(){{
   const mode=document.querySelector('input[name="pathMode"]:checked').value;
 
@@ -2459,7 +2352,6 @@ function computeAccessibility(){{
           '<p style="font-size:.85em;margin-top:8px">Switch to "Change (%)" mode to see per-area improvements.</p>'+
           '</div>';
         updateAreaColors();
-        updateAreaChangesTab();
         return;
       }}
 
@@ -3686,7 +3578,6 @@ computeAccessibility=function(){{
           '<p style="font-size:.85em;margin-top:8px">Switch to "Change (%)" mode to see per-area improvements.</p>'+
           '</div>';
         updateAreaColors();
-        updateAreaChangesTab();
 
         if(userCount>0){{
           document.getElementById('userLaneImpact').innerHTML=
@@ -3745,40 +3636,6 @@ computeAccessibility=function(){{
     processArea(0);
   }},50);
 }};
-
-function updateAreaChangesTab(){{
-  const container=document.getElementById('areaChangesList');
-  if(!container)return;
-  if(!baselineAcc||!computedAcc||
-     baselineK!==currentK||baselineTheta!==currentTheta||baselineYear!==currentYear||
-     computedK!==currentK||computedTheta!==currentTheta||computedYear!==currentYear){{
-    container.innerHTML='<p style="color:#888;font-size:.9em">No results yet — click Compute Accessibility first.</p>';
-    return;
-  }}
-  const mode=getAccMode();
-  const base=(mode==='dest')?baselineAcc.dest:baselineAcc.orig;
-  const comp=(mode==='dest')?computedAcc.dest:computedAcc.orig;
-  const changes=AREA_NAMES.map((name,i)=>{{
-    const b=base[i]||0,c=comp[i]||0;
-    const pct=b>0?100*(c-b)/b:0;
-    return {{name,pct,baseline:b,computed:c}};
-  }});
-  changes.sort((a,b)=>b.pct-a.pct);
-  const top20=changes.slice(0,20);
-  let html='<table style="width:100%;font-size:.82em;border-collapse:collapse">';
-  html+='<tr style="background:#f0f0f0"><th style="text-align:left;padding:4px 6px">#</th><th style="text-align:left;padding:4px 6px">Area</th><th style="padding:4px 6px">Change</th></tr>';
-  top20.forEach((row,idx)=>{{
-    const color=row.pct>0?'#27ae60':row.pct<0?'#e74c3c':'#666';
-    const sign=row.pct>=0?'+':'';
-    html+='<tr style="border-top:1px solid #eee">'+
-      '<td style="padding:4px 6px;color:#888">'+(idx+1)+'</td>'+
-      '<td style="padding:4px 6px">'+row.name+'</td>'+
-      '<td style="padding:4px 6px;text-align:right;font-weight:bold;color:'+color+'">'+sign+row.pct.toFixed(2)+'%</td>'+
-      '</tr>';
-  }});
-  html+='</table>';
-  container.innerHTML=html;
-}}
 
 // Initial render
 buildLaneList();
